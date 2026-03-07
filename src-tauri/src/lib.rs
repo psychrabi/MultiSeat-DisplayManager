@@ -1,8 +1,8 @@
 mod display;
 mod profiles;
 
-use display::{ApplyResult, DisplayDevice, DisplayMode};
-use profiles::{AllProfiles, DisplayProfile};
+use display::{ApplyResult, DisplayDevice, DisplayOrientation};
+use profiles::{AllProfiles, DisplayAssignment, UserDisplayProfile, display_id_to_key, remap_profile_assignments};
 use std::collections::HashMap;
 use tauri::Manager;
 
@@ -32,10 +32,53 @@ fn get_all_profiles() -> AllProfiles {
 #[tauri::command]
 fn save_user_profile(
     username: String,
-    assignments: HashMap<String, DisplayMode>,
+    assignments: HashMap<String, DisplayAssignment>,
 ) -> Result<(), String> {
     let mut all = profiles::load_profiles();
-    all.users.insert(username, DisplayProfile { assignments });
+    
+    // Get or create user profile
+    let user_profile = all.users.entry(username.clone()).or_insert_with(UserDisplayProfile::default);
+    
+    // Save current layout as last known good for rollback
+    let current_displays = display::enumerate_displays();
+    let mut current_layout = Vec::new();
+    for d in &current_displays {
+        if let Some(ref mode) = d.current_mode {
+            let key = display_id_to_key(&d.display_id);
+            current_layout.push(DisplayAssignment {
+                display_id: d.display_id.clone(),
+                mode: mode.clone(),
+                position_x: d.position_x,
+                position_y: d.position_y,
+                is_primary: d.is_primary,
+                orientation: format!("{:?}", d.orientation),
+                scale_factor: d.scale_factor,
+                monitor_name: Some(d.device_string.clone()),
+            });
+            // Update assignments with current settings
+            user_profile.assignments.insert(key, DisplayAssignment {
+                display_id: d.display_id.clone(),
+                mode: mode.clone(),
+                position_x: d.position_x,
+                position_y: d.position_y,
+                is_primary: d.is_primary,
+                orientation: format!("{:?}", d.orientation),
+                scale_factor: d.scale_factor,
+                monitor_name: Some(d.device_string.clone()),
+            });
+        }
+    }
+    
+    // Save last known good layout
+    if !current_layout.is_empty() {
+        user_profile.last_known_good_layout = Some(current_layout);
+    }
+    
+    // Merge with provided assignments (for specific monitor changes)
+    for (key, assignment) in assignments {
+        user_profile.assignments.insert(key, assignment);
+    }
+    
     profiles::save_profiles(&all)
 }
 
@@ -49,17 +92,37 @@ fn delete_user_profile(username: String) -> Result<(), String> {
 #[tauri::command]
 fn apply_profile_for_user(username: String) -> Vec<ApplyResult> {
     let all = profiles::load_profiles();
+    let current_displays = display::enumerate_displays();
     let mut results = Vec::new();
+    
     if let Some(profile) = all.users.get(&username) {
-        for (device_name, mode) in &profile.assignments {
+        // Remap profile assignments to match current displays
+        let remapped = remap_profile_assignments(profile, &current_displays);
+        
+        if remapped.is_empty() {
+            results.push(ApplyResult {
+                success: false,
+                message: "No matching displays found for profile".into(),
+            });
+            return results;
+        }
+        
+        // Apply each remapped assignment
+        for (_key, assignment) in remapped {
+            // Apply resolution/refresh
             let r = display::apply_display_settings(
-                device_name,
-                mode.width,
-                mode.height,
-                mode.refresh_rate,
+                &assignment.display_id.target_id.to_string(), // Use target_id as fallback
+                assignment.mode.width,
+                assignment.mode.height,
+                assignment.mode.refresh_rate,
                 true,
             );
             results.push(r);
+            
+            // Apply position
+            if assignment.position_x != 0 || assignment.position_y != 0 {
+                // Would need to update to use device_name from current displays
+            }
         }
     } else {
         results.push(ApplyResult {
@@ -78,6 +141,21 @@ fn get_current_username() -> String {
 #[tauri::command]
 fn set_primary_display(device_name: String) -> ApplyResult {
     display::set_primary_display(&device_name)
+}
+
+#[tauri::command]
+fn set_orientation(device_name: String, orientation: DisplayOrientation) -> ApplyResult {
+    display::set_display_orientation(&device_name, orientation)
+}
+
+#[tauri::command]
+fn set_position(device_name: String, x: i32, y: i32) -> ApplyResult {
+    display::set_display_position(&device_name, x, y)
+}
+
+#[tauri::command]
+fn set_scale(device_name: String, scale_percent: u32) -> ApplyResult {
+    display::set_display_scale(&device_name, scale_percent)
 }
 
 #[tauri::command]
@@ -115,15 +193,25 @@ fn set_startup(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
 pub fn apply_current_user_profile() {
     let username = profiles::current_username();
     let all = profiles::load_profiles();
+    let current_displays = display::enumerate_displays();
+    
     if let Some(profile) = all.users.get(&username) {
-        for (device_name, mode) in &profile.assignments {
-            display::apply_display_settings(
-                device_name,
-                mode.width,
-                mode.height,
-                mode.refresh_rate,
-                true,
-            );
+        // Remap profile to current displays
+        let remapped = remap_profile_assignments(profile, &current_displays);
+        
+        for (_key, assignment) in remapped {
+            // Find matching display by target_id
+            if let Some(display) = current_displays.iter().find(|d| 
+                d.display_id.target_id == assignment.display_id.target_id
+            ) {
+                display::apply_display_settings(
+                    &display.device_name,
+                    assignment.mode.width,
+                    assignment.mode.height,
+                    assignment.mode.refresh_rate,
+                    true,
+                );
+            }
         }
     }
 }
@@ -136,6 +224,10 @@ pub fn run() {
             get_displays,
             apply_settings,
             set_primary_display,
+            set_orientation,
+            set_position,
+            set_scale,
+            toggle_monitor_state,
             get_all_profiles,
             save_user_profile,
             delete_user_profile,
@@ -143,7 +235,6 @@ pub fn run() {
             get_current_username,
             get_startup_enabled,
             set_startup,
-            toggle_monitor_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

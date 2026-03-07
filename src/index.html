@@ -632,15 +632,27 @@
       align-items: center;
       justify-content: center;
       color: var(--text2);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: border-color 0.2s, transform 0.2s;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       z-index: 10;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .preview-monitor:active {
+      cursor: grabbing;
     }
 
     .preview-monitor:hover {
       border-color: var(--accent);
       transform: scale(1.02);
       z-index: 20;
+    }
+
+    .preview-monitor.dragging {
+      opacity: 0.8;
+      z-index: 100;
+      border-color: var(--accent);
     }
 
     .preview-monitor.primary {
@@ -1082,12 +1094,29 @@
           </div>
         </div>
         <div class="scroll-area">
-          <div class="section-heading">Monitor Layout Preview</div>
+          <div class="section-heading">Current layout</div>
           <div class="layout-preview-container" id="layout-preview">
             <div class="layout-preview-inner" id="layout-preview-inner"></div>
           </div>
 
-          <div class="section-heading">Connected Monitors</div>
+          <!-- Apply Layout Button (shows when there are pending changes) -->
+          <div id="apply-layout-container" style="display:none;margin-top:16px;text-align:right;">
+            <button class="btn" onclick="cancelLayoutChanges()" style="gap:8px;margin-right:8px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              Cancel
+            </button>
+            <button class="btn primary" onclick="applyLayoutChanges()" style="gap:8px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <polyline points="9 11 12 14 22 4" />
+              </svg>
+              Apply Layout Changes
+            </button>
+          </div>
+
+          <div class="section-heading">Monitors</div>
           <div id="monitors-loading"
             style="display:flex;align-items:center;gap:10px;color:var(--text3);padding:20px 0;">
             <div class="spinner"></div> Detecting monitors...
@@ -1209,22 +1238,28 @@
         {
           index: 0, device_name: '\\\\.\\DISPLAY1', device_string: 'Generic PnP Monitor',
           is_primary: true, is_active: true, position_x: 0, position_y: 0,
+          display_id: { adapter_luid: 12345678, target_id: 1, edid_hash: 'DISPLAY#ABC123#serial1' },
           current_mode: { width: 1920, height: 1080, refresh_rate: 60, bits_per_pixel: 32 },
           available_modes: [
             { width: 1920, height: 1080, refresh_rate: 144, bits_per_pixel: 32 },
             { width: 1920, height: 1080, refresh_rate: 60, bits_per_pixel: 32 },
             { width: 1280, height: 720, refresh_rate: 60, bits_per_pixel: 32 },
-          ]
+          ],
+          orientation: 'landscape',
+          scale_factor: 100,
         },
         {
           index: 1, device_name: '\\\\.\\DISPLAY2', device_string: 'Generic PnP Monitor 2',
           is_primary: false, is_active: true, position_x: 1920, position_y: 0,
+          display_id: { adapter_luid: 12345678, target_id: 2, edid_hash: 'DISPLAY#DEF456#serial2' },
           current_mode: { width: 1280, height: 1024, refresh_rate: 75, bits_per_pixel: 32 },
           available_modes: [
             { width: 1920, height: 1080, refresh_rate: 60, bits_per_pixel: 32 },
             { width: 1280, height: 1024, refresh_rate: 75, bits_per_pixel: 32 },
             { width: 1024, height: 768, refresh_rate: 60, bits_per_pixel: 32 },
-          ]
+          ],
+          orientation: 'landscape',
+          scale_factor: 100,
         }
       ];
       if (cmd === 'set_primary_display') {
@@ -1256,6 +1291,8 @@
       persist: true,
       autoSave: true,
     };
+    let pendingLayoutChanges = []; // Queue of pending position changes
+    let originalPositions = {}; // Store original positions for cancel
 
     // Pending changes: deviceName -> { width, height, refresh_rate }
     let pendingChanges = {};
@@ -1301,6 +1338,10 @@
         toast('Failed to load displays: ' + e, 'error');
       } finally {
         if (loading) loading.style.display = 'none';
+        // Hide apply button on refresh
+        document.getElementById('apply-layout-container').style.display = 'none';
+        pendingLayoutChanges = [];
+        originalPositions = {};
       }
     }
 
@@ -1311,8 +1352,12 @@
 
       if (!displays || displays.length === 0) return;
 
-      const activeDisplays = displays.filter(d => d.is_active && d.current_mode);
-      const allDisplayData = displays.filter(d => d.current_mode);
+      // Include all displays (active and inactive)
+      const allDisplayData = displays.map((d, i) => ({
+        ...d,
+        index: i,
+        current_mode: d.current_mode || { width: 1920, height: 1080, refresh_rate: 60 },
+      }));
 
       if (allDisplayData.length === 0) return;
 
@@ -1344,31 +1389,171 @@
         div.className = `preview-monitor ${d.is_primary ? 'primary' : ''} ${!d.is_active ? 'inactive' : ''}`;
         div.setAttribute('data-device', d.device_name);
 
-        const w = d.current_mode.width * scale;
-        const h = d.current_mode.height * scale;
+        // Account for orientation - swap dimensions for portrait modes
+        const isportrait = d.orientation === 'portrait' || d.orientation === 'portraitflipped';
+        const modeW = d.current_mode?.width || 1920;
+        const modeH = d.current_mode?.height || 1080;
+        const displayW = isportrait ? modeH : modeW;
+        const displayH = isportrait ? modeW : modeH;
+
+        const w = displayW * scale;
+        const h = displayH * scale;
         const x = startX + (d.position_x - minX) * scale;
         const y = startY + (d.position_y - minY) * scale;
 
+        // Set dimensions - for portrait, the box itself is taller than wide
         div.style.width = `${w}px`;
         div.style.height = `${h}px`;
         div.style.left = `${x}px`;
         div.style.top = `${y}px`;
 
+        // Extract short monitor name for layout preview
+        const monitorName = d.device_string || 'Monitor';
+        // Truncate long names but keep more than just first word
+        const shortMonitorName = monitorName.length > 15
+            ? monitorName.substring(0, 14) + '...'
+            : monitorName;
+
         div.innerHTML = `
-          <div class="num">${d.index + 1}</div>
-          <div class="res">${d.current_mode.width}x${d.current_mode.height}</div>
+          <div class="num">${i + 1}</div>
+          <div class="res">${displayW}x${displayH}</div>
+          <div style="font-size:7px;opacity:0.6;margin-top:2px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${monitorName}">${shortMonitorName}</div>
+          ${!d.is_active ? '<div style="font-size:6px;opacity:0.5;margin-top:2px;">DISCONNECTED</div>' : ''}
         `;
 
+        // Drag to reposition
+        let isDragging = false;
+        let startX_drag, startY_drag, origX, origY;
+        const SNAP_THRESHOLD = 50; // pixels
+
+        div.addEventListener('mousedown', (e) => {
+          if (d.is_active) {
+            isDragging = true;
+            div.classList.add('dragging');
+            startX_drag = e.clientX;
+            startY_drag = e.clientY;
+            origX = d.position_x;
+            origY = d.position_y;
+            e.preventDefault();
+          }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (isDragging) {
+            const dx = Math.round((e.clientX - startX_drag) / scale);
+            const dy = Math.round((e.clientY - startY_drag) / scale);
+            const newX = origX + dx;
+            const newY = origY + dy;
+            div.style.left = `${startX + (newX - minX) * scale}px`;
+            div.style.top = `${startY + (newY - minY) * scale}px`;
+          }
+        });
+
+        document.addEventListener('mouseup', async (e) => {
+          if (isDragging) {
+            isDragging = false;
+            div.classList.remove('dragging');
+            const dx = Math.round((e.clientX - startX_drag) / scale);
+            const dy = Math.round((e.clientY - startY_drag) / scale);
+            let newX = origX + dx;
+            let newY = origY + dy;
+
+            // Snap to other monitors
+            const currentMode = d.current_mode || { width: 1920, height: 1080 };
+            const isPortrait = d.orientation === 'portrait' || d.orientation === 'portraitflipped';
+            const currentW = isPortrait ? currentMode.height : currentMode.width;
+            const currentH = isPortrait ? currentMode.width : currentMode.height;
+
+            for (const other of displays) {
+              if (other.index === d.index || !other.is_active) continue;
+
+              const otherMode = other.current_mode || { width: 1920, height: 1080 };
+              const otherPortrait = other.orientation === 'portrait' || other.orientation === 'portraitflipped';
+              const otherW = otherPortrait ? otherMode.height : otherMode.width;
+              const otherH = otherPortrait ? otherMode.width : otherMode.height;
+
+              // Check horizontal edges (snap left/right edges together)
+              // Our right edge to their left edge
+              if (Math.abs((newX + currentW) - other.position_x) <= SNAP_THRESHOLD) {
+                const snapY = other.position_y;
+                if (Math.abs((newY + currentH / 2) - (snapY + otherH / 2)) <= SNAP_THRESHOLD * 2) {
+                  newX = other.position_x - currentW;
+                  newY = snapY;
+                }
+              }
+              // Our left edge to their right edge
+              if (Math.abs(newX - (other.position_x + otherW)) <= SNAP_THRESHOLD) {
+                const snapY = other.position_y;
+                if (Math.abs((newY + currentH / 2) - (snapY + otherH / 2)) <= SNAP_THRESHOLD * 2) {
+                  newX = other.position_x + otherW;
+                  newY = snapY;
+                }
+              }
+              // Top edges aligned
+              if (Math.abs(newY - other.position_y) <= SNAP_THRESHOLD) {
+                newY = other.position_y;
+              }
+              // Bottom edges aligned
+              if (Math.abs((newY + currentH) - (other.position_y + otherH)) <= SNAP_THRESHOLD) {
+                newY = other.position_y + otherH - currentH;
+              }
+              // Center vertically aligned
+              if (Math.abs((newY + currentH / 2) - (other.position_y + otherH / 2)) <= SNAP_THRESHOLD) {
+                newY = other.position_y + (otherH - currentH) / 2;
+              }
+            }
+
+            // Snap to grid (100px) as fallback
+            const snappedX = Math.round(newX / 100) * 100;
+            const snappedY = Math.round(newY / 100) * 100;
+
+            // Queue the change instead of applying immediately
+            if (snappedX !== d.position_x || snappedY !== d.position_y) {
+              // Store original position if not already stored
+              if (!originalPositions[d.device_name]) {
+                originalPositions[d.device_name] = {
+                  x: d.position_x,
+                  y: d.position_y,
+                  index: d.index,
+                };
+              }
+              // Remove any existing pending change for this display
+              pendingLayoutChanges = pendingLayoutChanges.filter(
+                c => c.deviceName !== d.device_name
+              );
+              // Add new pending change
+              pendingLayoutChanges.push({
+                deviceName: d.device_name,
+                x: snappedX,
+                y: snappedY,
+              });
+              // Update visual position immediately for feedback
+              d.position_x = snappedX;
+              d.position_y = snappedY;
+              // Update position label on monitor card
+              const posElement = document.getElementById(`pos-${d.index}`);
+              if (posElement) {
+                posElement.textContent = `${snappedX >= 0 ? '+' : ''}${snappedX}, ${snappedY >= 0 ? '+' : ''}${snappedY}`;
+              }
+              // Show apply button
+              document.getElementById('apply-layout-container').style.display = 'block';
+              toast(`Position changed to (${snappedX}, ${snappedY}). Click "Apply Layout Changes" to save.`, 'info');
+            }
+          }
+        });
+
         div.onclick = () => {
-          const card = document.getElementById(`card-${d.index}`);
-          if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            card.style.background = 'rgba(0, 212, 255, 0.05)';
-            card.style.borderColor = 'var(--accent)';
-            setTimeout(() => {
-              card.style.background = '';
-              card.style.borderColor = '';
-            }, 2000);
+          if (!isDragging) {
+            const card = document.getElementById(`card-${d.index}`);
+            if (card) {
+              card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              card.style.background = 'rgba(0, 212, 255, 0.05)';
+              card.style.borderColor = 'var(--accent)';
+              setTimeout(() => {
+                card.style.background = '';
+                card.style.borderColor = '';
+              }, 2000);
+            }
           }
         };
 
@@ -1379,7 +1564,8 @@
     async function toggleMonitor(deviceName, currentState) {
       try {
         await invoke('toggle_monitor_state', { deviceName, enabled: !currentState });
-        toast(`Monitor ${!currentState ? 'connected' : 'disconnected'}`, 'success');
+        toast(`Monitor ${!currentState ? 'reconnected' : 'disconnected'}`, 'success');
+        // Refresh UI to show updated state
         await loadDisplays();
       } catch (e) {
         toast('Failed to toggle monitor: ' + e, 'error');
@@ -1395,13 +1581,27 @@
 
       grid.innerHTML = displays.map(d => {
         const cur = d.current_mode;
-        const curLabel = cur ? `${cur.width}x${cur.height} @ ${cur.refresh_rate}Hz` : 'Unknown';
 
-        // Build unique resolution list
-        const resolutions = [...new Set(d.available_modes.map(m => `${m.width}x${m.height}`))];
+        // Calculate displayed resolution based on orientation
+        let curLabel = 'Unknown';
+        let displayWidth, displayHeight;
+        if (cur) {
+          const isportrait = d.orientation === 'portrait' || d.orientation === 'portraitflipped';
+          displayWidth = isportrait ? cur.height : cur.width;
+          displayHeight = isportrait ? cur.width : cur.height;
+          curLabel = `${displayWidth}x${displayHeight} @ ${cur.refresh_rate}Hz`;
+        }
+
+        // Build unique resolution list - always show native (landscape) dimensions
+        const resolutions = [...new Set(d.available_modes.map(m => `${m.width}x${m.height}`))].sort((a, b) => {
+          const [aw, ah] = a.split('x').map(Number);
+          const [bw, bh] = b.split('x').map(Number);
+          return (bw * bh) - (aw * ah); // Sort by total pixels descending
+        });
+
         const resOpts = resolutions.map(r => `<option value="${r}">${r}</option>`).join('');
 
-        // Get refresh rates for default resolution
+        // Get refresh rates for selected resolution
         const defaultRes = cur ? `${cur.width}x${cur.height}` : resolutions[0];
         const refreshRates = d.available_modes
           .filter(m => `${m.width}x${m.height}` === defaultRes)
@@ -1410,18 +1610,20 @@
 
         const shortName = d.device_name.replace(/\\\\.\\/, '').replace(/DISPLAY/, 'Display ');
         const posLabel = `${d.position_x >= 0 ? '+' : ''}${d.position_x}, ${d.position_y >= 0 ? '+' : ''}${d.position_y}`;
+        const monitorName = d.device_string || 'Unknown Monitor';
+        const adapterName = d.adapter_name || '';
 
         return `
       <div class="monitor-card" id="card-${d.index}">
         <div class="mc-header">
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
               <span class="mc-index">MON:${d.index + 1}</span>
               ${d.is_primary ? '<span class="badge primary-badge">PRIMARY</span>' : ''}
               ${d.is_active ? '<span class="badge active-badge">ACTIVE</span>' : '<span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text3);">INACTIVE</span>'}
             </div>
-            <div class="mc-name">${shortName}</div>
-            <div class="mc-desc">${d.device_string}</div>
+            <div class="mc-name" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px;">${monitorName}</div>
+            <div class="mc-desc" style="font-size:10px;opacity:0.6;">${shortName}${adapterName ? ' • ' + adapterName : ''}</div>
           </div>
         </div>
         <div class="mc-body">
@@ -1439,7 +1641,7 @@
           <div class="form-group">
             <label class="form-label">Resolution</label>
             <div class="select-wrap">
-              <select id="res-${d.index}" onchange="onResolutionChange(${d.index})">
+              <select id="res-${d.index}" onchange="onResolutionChange(${d.index})" ${!d.is_active ? 'disabled' : ''}>
                 ${resOpts}
               </select>
             </div>
@@ -1448,35 +1650,53 @@
           <div class="form-group">
             <label class="form-label">Refresh Rate</label>
             <div class="select-wrap">
-              <select id="rate-${d.index}">${rateOpts}</select>
+              <select id="rate-${d.index}" ${!d.is_active ? 'disabled' : ''}>${rateOpts}</select>
             </div>
           </div>
 
+          <div class="form-group">
+            <label class="form-label">Orientation</label>
+            <div class="select-wrap">
+              <select id="orient-${d.index}" ${!d.is_active ? 'disabled' : ''}>
+                <option value="landscape" ${d.orientation === 'landscape' ? 'selected' : ''}>Landscape</option>
+                <option value="portrait" ${d.orientation === 'portrait' ? 'selected' : ''}>Portrait</option>
+                <option value="landscapeflipped" ${d.orientation === 'landscapeflipped' ? 'selected' : ''}>Landscape (flipped)</option>
+                <option value="portraitflipped" ${d.orientation === 'portraitflipped' ? 'selected' : ''}>Portrait (flipped)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Scale</label>
+            <div class="select-wrap">
+              <select id="scale-${d.index}" ${!d.is_active ? 'disabled' : ''}>
+                <option value="100" ${d.scale_factor === 100 ? 'selected' : ''}>100%</option>
+                <option value="125" ${d.scale_factor === 125 ? 'selected' : ''}>125%</option>
+                <option value="150" ${d.scale_factor === 150 ? 'selected' : ''}>150%</option>
+                <option value="200" ${d.scale_factor === 200 ? 'selected' : ''}>200%</option>
+              </select>
+            </div>
+          </div>
+
+          ${d.is_active ? `
           <div class="mc-apply-row">
-            <button class="btn" onclick="applyMonitorSettings(${d.index}, false)">
+            <button class="btn primary" onclick="applyMonitorSettings(${d.index})">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
                 <polyline points="9 11 12 14 22 4"/>
               </svg>
-              Apply
-            </button>
-            <button class="btn primary" onclick="applyMonitorSettings(${d.index}, true)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-              </svg>
-              Apply & Save
+              ${settings.autoSave ? 'Apply' : 'Apply & Save'}
             </button>
           </div>
 
           <div style="margin-top:8px; display:flex; gap: 8px;">
-            <button class="btn" style="flex:1; justify-content:center; ${d.is_active ? 'border-color:var(--error);color:var(--error);' : 'border-color:var(--success);color:var(--success);'} ${d.is_primary && d.is_active ? 'opacity:0.5; pointer-events:none;' : ''}"
+            <button class="btn" style="flex:1; justify-content:center; border-color:var(--error);color:var(--error);"
               onclick="toggleMonitor('${d.device_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${d.is_active})">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
               </svg>
-              ${d.is_active ? 'Disconnect' : 'Connect'}
+              Disconnect
             </button>
-            ${!d.is_primary && d.is_active ? `
+            ${!d.is_primary ? `
             <button class="btn" style="flex:1.4; justify-content:center; border-color:var(--warn);color:var(--warn);"
               onclick="setPrimary('${d.device_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${d.index})">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
@@ -1484,14 +1704,16 @@
               </svg>
               Make Primary
             </button>` : ''}
-          </div>
-          ${d.is_primary ? `
-            <div style="margin-top:8px; display:flex;align-items:center;justify-content:center;gap:6px;padding:7px;border-radius:5px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);">
-              <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="1" width="12" height="12">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </div>` : `
+          <div style="margin-top:8px;">
+            <button class="btn" style="width:100%; justify-content:center; border-color:var(--success);color:var(--success);"
+              onclick="toggleMonitor('${d.device_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${d.is_active})">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
               </svg>
-              <span style="font-size:11px;color:var(--accent);font-family:var(--mono);letter-spacing:0.04em;">PRIMARY DISPLAY</span>
-            </div>` : ''}
+              Reconnect
+            </button>
+          </div>`}
           </div>
         </div>
       </div>
@@ -1518,43 +1740,171 @@
       const resSel = document.getElementById(`res-${monitorIndex}`);
       const rateSel = document.getElementById(`rate-${monitorIndex}`);
       const [w, h] = resSel.value.split('x').map(Number);
-      const rates = d.available_modes
-        .filter(m => m.width === w && m.height === h)
-        .map(m => m.refresh_rate);
-      rateSel.innerHTML = rates.map(r => `<option value="${r}">${r}Hz</option>`).join('');
+
+      // Get current refresh rate (preserve if possible)
+      const currentRate = parseInt(rateSel.value) || d.current_mode?.refresh_rate || 60;
+
+      // Get all modes that match this resolution (dropdown shows native dimensions)
+      const matchingModes = d.available_modes.filter(m => m.width === w && m.height === h);
+
+      // Get unique refresh rates
+      const rates = [...new Set(matchingModes.map(m => m.refresh_rate))].sort((a, b) => a - b);
+
+      if (rates.length === 0) {
+        // Fallback: show all available rates for this display
+        const allRates = [...new Set(d.available_modes.map(m => m.refresh_rate))].sort((a, b) => a - b);
+        rateSel.innerHTML = allRates.map(r => `<option value="${r}">${r}Hz</option>`).join('');
+      } else {
+        rateSel.innerHTML = rates.map(r => `<option value="${r}">${r}Hz</option>`).join('');
+      }
+
+      // Try to preserve current refresh rate if it's available for this resolution
+      if (rates.includes(currentRate)) {
+        rateSel.value = currentRate;
+      } else if (rates.length > 0) {
+        // Otherwise select the first available rate
+        rateSel.value = rates[0];
+      }
     }
 
-    async function applyMonitorSettings(monitorIndex, saveProfile) {
+    async function applyLayoutChanges() {
+      if (pendingLayoutChanges.length === 0) return;
+
+      try {
+        // Apply all pending position changes
+        for (const change of pendingLayoutChanges) {
+          await invoke('set_position', {
+            deviceName: change.deviceName,
+            x: change.x,
+            y: change.y,
+          });
+        }
+        toast(`Applied ${pendingLayoutChanges.length} layout change(s)`, 'success');
+        // Clear pending changes and hide button
+        pendingLayoutChanges = [];
+        originalPositions = {};
+        document.getElementById('apply-layout-container').style.display = 'none';
+        // Refresh to show final state
+        await loadDisplays();
+      } catch (e) {
+        toast('Failed to apply layout: ' + e, 'error');
+      }
+    }
+
+    function cancelLayoutChanges() {
+      // Restore original positions
+      for (const [deviceName, orig] of Object.entries(originalPositions)) {
+        const display = displays.find(d => d.device_name === deviceName);
+        if (display) {
+          display.position_x = orig.x;
+          display.position_y = orig.y;
+          // Update position label on monitor card
+          const posElement = document.getElementById(`pos-${orig.index}`);
+          if (posElement) {
+            posElement.textContent = `${orig.x >= 0 ? '+' : ''}${orig.x}, ${orig.y >= 0 ? '+' : ''}${orig.y}`;
+          }
+        }
+      }
+      // Clear pending changes and hide button
+      pendingLayoutChanges = [];
+      originalPositions = {};
+      document.getElementById('apply-layout-container').style.display = 'none';
+      // Re-render layout preview to show restored positions
+      renderLayoutPreview();
+      toast('Layout changes cancelled', 'info');
+    }
+
+    async function applyMonitorSettings(monitorIndex) {
       const d = displays[monitorIndex];
       if (!d) return;
       const resSel = document.getElementById(`res-${monitorIndex}`);
       const rateSel = document.getElementById(`rate-${monitorIndex}`);
+      const orientSel = document.getElementById(`orient-${monitorIndex}`);
+      const scaleSel = document.getElementById(`scale-${monitorIndex}`);
       const [width, height] = resSel.value.split('x').map(Number);
-      const refresh_rate = parseInt(rateSel.value);
+      const refresh_rate = parseInt(rateSel.value) || d.current_mode?.refresh_rate || 60;
+      const orientation = orientSel.value;
+      const scale = parseInt(scaleSel.value);
 
       try {
+        let hasChanges = false;
+
+        // Apply resolution/refresh rate (dropdown shows native dimensions)
         const result = await invoke('apply_settings', {
           deviceName: d.device_name, width, height, refreshRate: refresh_rate,
           persist: settings.persist,
         });
         if (result.success) {
-          document.getElementById(`cur-${monitorIndex}`).textContent = `${width}x${height} @ ${refresh_rate}Hz`;
+          // Display resolution accounting for current orientation
+          const isportrait = orientation === 'portrait' || orientation === 'portraitflipped';
+          const displayW = isportrait ? height : width;
+          const displayH = isportrait ? width : height;
+          document.getElementById(`cur-${monitorIndex}`).textContent = `${displayW}x${displayH} @ ${refresh_rate}Hz`;
           toast(result.message, 'success');
-
-          if (saveProfile || settings.autoSave) {
-            // Save to current user's profile
-            if (!allProfiles.users[currentUser]) allProfiles.users[currentUser] = { assignments: {} };
-            allProfiles.users[currentUser].assignments[d.device_name] = { width, height, refresh_rate, bits_per_pixel: 32 };
-            await invoke('save_user_profile', {
-              username: currentUser,
-              assignments: allProfiles.users[currentUser].assignments,
-            });
-            await loadProfiles();
-            toast('Saved to profile', 'info');
-          }
+          hasChanges = true;
         } else {
           toast(result.message, 'error');
         }
+
+        // Apply orientation
+        if (d.orientation !== orientation) {
+          const orientResult = await invoke('set_orientation', {
+            deviceName: d.device_name,
+            orientation: orientation,
+          });
+          if (orientResult.success) {
+            toast(`Orientation set to ${orientation}`, 'success');
+            hasChanges = true;
+          } else {
+            toast(orientResult.message, 'error');
+          }
+        }
+
+        // Apply scale
+        if (d.scale_factor !== scale) {
+          const scaleResult = await invoke('set_scale', {
+            deviceName: d.device_name,
+            scalePercent: scale,
+          });
+          if (scaleResult.success) {
+            toast(scaleResult.message, 'info');
+          } else {
+            toast(scaleResult.message, 'error');
+          }
+        }
+
+        // Refresh UI to show updated state
+        if (hasChanges) {
+          await loadDisplays();
+        }
+
+        // Always save to current user's profile
+        if (!allProfiles.users[currentUser]) allProfiles.users[currentUser] = { assignments: {} };
+        
+        // Create assignment with full display state including position, orientation, scale
+        const assignment = {
+          display_id: d.display_id,
+          mode: { width, height, refresh_rate, bits_per_pixel: 32 },
+          position_x: d.position_x,
+          position_y: d.position_y,
+          is_primary: d.is_primary,
+          orientation: orientSel.value,
+          scale_factor: scale,
+        };
+        
+        // Use display_id to generate key (EDID-based if available)
+        const key = d.display_id.edid_hash 
+          ? 'edid_' + d.display_id.edid_hash.replace(/\\/g, '_').replace(/#/g, '_')
+          : d.display_id.adapter_luid + '_' + d.display_id.target_id;
+        
+        allProfiles.users[currentUser].assignments[key] = assignment;
+        
+        await invoke('save_user_profile', {
+          username: currentUser,
+          assignments: { [key]: assignment },
+        });
+        await loadProfiles();
+        toast('Saved to profile', 'info');
       } catch (e) {
         toast('Error: ' + e, 'error');
       }
@@ -1581,40 +1931,8 @@
         const result = await invoke('set_primary_display', { deviceName });
         if (result.success) {
           toast(result.message, 'success');
-          // Update local state so UI reflects change without full reload
-          displays.forEach(d => { d.is_primary = d.device_name === deviceName; });
-          // Re-render just the primary-row for each card to flip badges/buttons
-          displays.forEach(d => {
-            const row = document.getElementById(`primary-row-${d.index}`);
-            if (!row) return;
-            if (d.is_primary) {
-              row.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:7px;border-radius:5px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);">
-              <svg viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="1" width="12" height="12">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-              <span style="font-size:11px;color:var(--accent);font-family:var(--mono);letter-spacing:0.04em;">PRIMARY DISPLAY</span>
-            </div>`;
-              // Update header badge
-              const header = document.querySelector(`#card-${d.index} .mc-header`);
-              if (header && !header.querySelector('.primary-badge')) {
-                header.querySelector('.mc-index').insertAdjacentHTML('afterend', '<span class="badge primary-badge">PRIMARY</span>');
-              }
-            } else {
-              const dn = d.device_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-              row.innerHTML = `
-            <button class="btn" style="width:100%;justify-content:center;border-color:var(--warn);color:var(--warn);"
-              onclick="setPrimary('${dn}', ${d.index})">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-              Set as Primary Monitor
-            </button>`;
-              // Remove primary badge from header if present
-              const pb = document.querySelector(`#card-${d.index} .primary-badge`);
-              if (pb) pb.remove();
-            }
-          });
+          // Refresh UI to show updated state
+          await loadDisplays();
         } else {
           toast(result.message, 'error');
           if (btn) { btn.disabled = false; btn.textContent = 'Set as Primary Monitor'; }
@@ -1683,15 +2001,53 @@
     <div class="profile-detail-content">
       ${entries.length === 0
           ? '<div style="padding:20px;color:var(--text3);font-size:12px;">No monitor assignments yet.</div>'
-          : entries.map(([dev, mode]) => `
+          : entries.map(([key, assignment]) => {
+              // Extract monitor name from EDID hash or use saved monitor_name
+              // EDID format: \\?\DISPLAY#MSI30B9#5&1d00314d&0&UID4355#{GUID}
+              let monitorName = assignment.monitor_name;
+              if (!monitorName && assignment.display_id?.edid_hash) {
+                const edid = assignment.display_id.edid_hash;
+                // Try to extract PnP ID from EDID hash (e.g., MSI30B9 from DISPLAY#MSI30B9#...)
+                const pnpMatch = edid.match(/DISPLAY#([A-Z0-9]+)#/i);
+                if (pnpMatch) {
+                  monitorName = pnpMatch[1];
+                } else {
+                  // Fallback: clean up the EDID string
+                  monitorName = edid.replace(/_/g, ' ').replace(/^edid\s*/, '');
+                }
+              }
+              monitorName = monitorName || 'Unknown Monitor';
+              
+              const dev = assignment.display_id?.edid_hash 
+                ? assignment.display_id.edid_hash.split('#')[1] || key 
+                : key;
+              const width = assignment.mode?.width || assignment.width || 0;
+              const height = assignment.mode?.height || assignment.height || 0;
+              const refreshRate = assignment.mode?.refresh_rate || assignment.refresh_rate || 0;
+              const posX = assignment.position_x ?? 0;
+              const posY = assignment.position_y ?? 0;
+              const isPrimary = assignment.is_primary ?? false;
+              const orientation = assignment.orientation || 'landscape';
+              const scale = assignment.scale_factor || 100;
+              
+              return `
           <div class="assignment-row">
             <div>
-              <div class="assignment-device">${dev}</div>
-              <div class="assignment-mode">${mode.width}x${mode.height} @ ${mode.refresh_rate}Hz</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                <div class="assignment-device" style="font-size:11px;">${monitorName}</div>
+                ${isPrimary ? '<span class="badge primary-badge" style="font-size:7px;">PRIMARY</span>' : ''}
+              </div>
+              <div class="assignment-mode" style="margin-bottom:2px;">${width}x${height} @ ${refreshRate}Hz</div>
+              <div style="font-size:10px;color:var(--text3);font-family:var(--mono);">
+                Position: ${posX >= 0 ? '+' : ''}${posX}, ${posY >= 0 ? '+' : ''}${posY}
+                • Orientation: ${orientation}
+                • Scale: ${scale}%
+              </div>
             </div>
-            <button class="btn danger" onclick="removeAssignment('${username.replace(/'/g, "\\'")}', '${dev.replace(/'/g, "\\'")}')">Remove</button>
+            <button class="btn danger" onclick="removeAssignment('${username.replace(/'/g, "\\'")}', '${key.replace(/'/g, "\\'")}')">Remove</button>
           </div>
-        `).join('')
+        `;
+            }).join('')
         }
     </div>
     <div class="profile-detail-footer">
@@ -1711,6 +2067,8 @@
         const fail = results.filter(r => !r.success).length;
         if (ok) toast(`Applied ${ok} setting(s) for ${username}`, 'success');
         if (fail) toast(`${fail} failed`, 'error');
+        // Refresh UI to show updated state
+        await loadDisplays();
       } catch (e) { toast('Error: ' + e, 'error'); }
     }
 
@@ -1783,6 +2141,8 @@
       settings.autoSave = !settings.autoSave;
       document.getElementById('autoSaveToggle').classList.toggle('on', settings.autoSave);
       toast('Auto-save: ' + (settings.autoSave ? 'on' : 'off'), 'info');
+      // Re-render monitors to update button text
+      renderMonitors();
     }
 
     // ── Toast ─────────────────────────────────────────────────────────────────────
