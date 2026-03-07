@@ -94,11 +94,11 @@ fn apply_profile_for_user(username: String) -> Vec<ApplyResult> {
     let all = profiles::load_profiles();
     let current_displays = display::enumerate_displays();
     let mut results = Vec::new();
-    
+
     if let Some(profile) = all.users.get(&username) {
         // Remap profile assignments to match current displays
         let remapped = remap_profile_assignments(profile, &current_displays);
-        
+
         if remapped.is_empty() {
             results.push(ApplyResult {
                 success: false,
@@ -106,22 +106,70 @@ fn apply_profile_for_user(username: String) -> Vec<ApplyResult> {
             });
             return results;
         }
-        
+
+        eprintln!("[apply_profile] Applying {} remapped assignments", remapped.len());
+        eprintln!("[apply_profile] Current displays: {}", current_displays.len());
+        for d in &current_displays {
+            eprintln!("[apply_profile]   - {} (target_id={}, edid={:?})", 
+                d.device_name, d.display_id.target_id, d.display_id.edid_hash);
+        }
+
         // Apply each remapped assignment
-        for (_key, assignment) in remapped {
-            // Apply resolution/refresh
-            let r = display::apply_display_settings(
-                &assignment.display_id.target_id.to_string(), // Use target_id as fallback
-                assignment.mode.width,
-                assignment.mode.height,
-                assignment.mode.refresh_rate,
-                true,
+        for (key, assignment) in remapped {
+            eprintln!("[apply_profile] Applying assignment for key={}, target_id={}, edid={:?}", 
+                key, assignment.display_id.target_id, assignment.display_id.edid_hash);
+
+            // Find the matching current display by DisplayId
+            let matching_display = current_displays.iter().find(|d| 
+                d.display_id.matches_path_by_assignment(&assignment.display_id)
             );
-            results.push(r);
-            
-            // Apply position
-            if assignment.position_x != 0 || assignment.position_y != 0 {
-                // Would need to update to use device_name from current displays
+
+            if let Some(display) = matching_display {
+                eprintln!("[apply_profile] Found matching display: {}", display.device_name);
+                
+                // Apply resolution/refresh using the actual device_name
+                let r = display::apply_display_settings(
+                    &display.device_name,
+                    assignment.mode.width,
+                    assignment.mode.height,
+                    assignment.mode.refresh_rate,
+                    true,
+                );
+                eprintln!("[apply_profile] Resolution result: {:?}", r.success);
+                results.push(r);
+
+                // Apply position if different
+                if assignment.position_x != display.position_x || assignment.position_y != display.position_y {
+                    let pos_result = display::set_display_position(
+                        &display.device_name,
+                        assignment.position_x,
+                        assignment.position_y,
+                    );
+                    eprintln!("[apply_profile] Position result: {:?}", pos_result.success);
+                    results.push(pos_result);
+                }
+
+                // Apply orientation if different
+                let target_orientation = match assignment.orientation.as_str() {
+                    "Portrait" => display::DisplayOrientation::Portrait,
+                    "LandscapeFlipped" => display::DisplayOrientation::LandscapeFlipped,
+                    "PortraitFlipped" => display::DisplayOrientation::PortraitFlipped,
+                    _ => display::DisplayOrientation::Landscape,
+                };
+                if display.orientation != target_orientation {
+                    let orient_result = display::set_display_orientation(
+                        &display.device_name,
+                        target_orientation,
+                    );
+                    eprintln!("[apply_profile] Orientation result: {:?}", orient_result.success);
+                    results.push(orient_result);
+                }
+            } else {
+                eprintln!("[apply_profile] No matching display found for assignment");
+                results.push(ApplyResult {
+                    success: false,
+                    message: "Display not found in current configuration".into(),
+                });
             }
         }
     } else {

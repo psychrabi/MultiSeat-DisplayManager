@@ -29,6 +29,17 @@ impl DisplayId {
             edid_hash,
         }
     }
+
+    /// Check if this DisplayId matches another (for profile assignment matching)
+    /// Uses EDID hash if available, otherwise falls back to target_id
+    pub fn matches_path_by_assignment(&self, other: &DisplayId) -> bool {
+        // If both have EDID hashes, compare them (most reliable)
+        if let (Some(ref my_edid), Some(ref other_edid)) = (&self.edid_hash, &other.edid_hash) {
+            return my_edid == other_edid;
+        }
+        // Fallback to target_id matching (handles adapter LUID changes)
+        self.target_id == other.target_id
+    }
 }
 
 /// Compute a hash of the monitor's EDID for reliable identification

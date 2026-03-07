@@ -1880,25 +1880,28 @@
 
         // Always save to current user's profile
         if (!allProfiles.users[currentUser]) allProfiles.users[currentUser] = { assignments: {} };
+
+        // Get the selected resolution (always stored as native landscape dimensions)
+        const [selectedWidth, selectedHeight] = resSel.value.split('x').map(Number);
         
         // Create assignment with full display state including position, orientation, scale
         const assignment = {
           display_id: d.display_id,
-          mode: { width, height, refresh_rate, bits_per_pixel: 32 },
+          mode: { width: selectedWidth, height: selectedHeight, refresh_rate, bits_per_pixel: 32 },
           position_x: d.position_x,
           position_y: d.position_y,
           is_primary: d.is_primary,
           orientation: orientSel.value,
           scale_factor: scale,
         };
-        
+
         // Use display_id to generate key (EDID-based if available)
-        const key = d.display_id.edid_hash 
+        const key = d.display_id.edid_hash
           ? 'edid_' + d.display_id.edid_hash.replace(/\\/g, '_').replace(/#/g, '_')
           : d.display_id.adapter_luid + '_' + d.display_id.target_id;
-        
+
         allProfiles.users[currentUser].assignments[key] = assignment;
-        
+
         await invoke('save_user_profile', {
           username: currentUser,
           assignments: { [key]: assignment },
@@ -1916,10 +1919,13 @@
         const ok = results.filter(r => r.success).length;
         const fail = results.filter(r => !r.success).length;
         if (ok) toast(`Applied ${ok} setting(s) from your profile`, 'success');
-        if (fail) toast(`${fail} setting(s) failed to apply`, 'error');
+        if (fail) {
+          const failMessages = results.filter(r => !r.success).map(r => r.message);
+          toast(`${fail} setting(s) failed: ${failMessages.join(', ')}`, 'error');
+        }
         await loadDisplays();
       } catch (e) {
-        toast('No profile found for current user', 'info');
+        toast('No profile found for current user: ' + e, 'info');
       }
     }
 
@@ -2066,8 +2072,10 @@
         const ok = results.filter(r => r.success).length;
         const fail = results.filter(r => !r.success).length;
         if (ok) toast(`Applied ${ok} setting(s) for ${username}`, 'success');
-        if (fail) toast(`${fail} failed`, 'error');
-        // Refresh UI to show updated state
+        if (fail) {
+          const failMessages = results.filter(r => !r.success).map(r => r.message);
+          toast(`${fail} failed: ${failMessages.join(', ')}`, 'error');
+        }
         await loadDisplays();
       } catch (e) { toast('Error: ' + e, 'error'); }
     }
