@@ -37,11 +37,146 @@ fn wide_to_string(wide: &[u16]) -> String {
 }
 
 #[cfg(windows)]
+mod win_ccd {
+    use windows::Win32::Devices::Display::{
+        DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig,
+        SetDisplayConfig, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, DISPLAYCONFIG_MODE_INFO,
+        DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_SOURCE_DEVICE_NAME, QDC_ALL_PATHS,
+        QUERY_DISPLAY_CONFIG_FLAGS, SDC_ALLOW_CHANGES, SDC_APPLY, SDC_NO_OPTIMIZATION,
+        SDC_SAVE_TO_DATABASE, SDC_USE_SUPPLIED_DISPLAY_CONFIG,
+    };
+    use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, WIN32_ERROR};
+
+    pub const DISPLAYCONFIG_PATH_ACTIVE_FLAG: u32 = 0x0000_0001;
+    pub const DISPLAYCONFIG_PATH_MODE_IDX_INVALID: u32 = 0xffffffff;
+
+    pub struct Topology {
+        pub paths: Vec<DISPLAYCONFIG_PATH_INFO>,
+        pub modes: Vec<DISPLAYCONFIG_MODE_INFO>,
+    }
+
+    pub fn get_topology(flags: QUERY_DISPLAY_CONFIG_FLAGS) -> Result<Topology, String> {
+        let mut path_count = 0u32;
+        let mut mode_count = 0u32;
+
+        unsafe {
+            let status = GetDisplayConfigBufferSizes(flags, &mut path_count, &mut mode_count);
+            if status != WIN32_ERROR(0) {
+                return Err(format!("GetDisplayConfigBufferSizes failed: {:?}", status));
+            }
+
+            loop {
+                let mut paths = vec![DISPLAYCONFIG_PATH_INFO::default(); path_count as usize];
+                let mut modes = vec![DISPLAYCONFIG_MODE_INFO::default(); mode_count as usize];
+
+                let status = QueryDisplayConfig(
+                    flags,
+                    &mut path_count,
+                    paths.as_mut_ptr(),
+                    &mut mode_count,
+                    modes.as_mut_ptr(),
+                    None,
+                );
+
+                if status == ERROR_INSUFFICIENT_BUFFER {
+                    let _ = GetDisplayConfigBufferSizes(flags, &mut path_count, &mut mode_count);
+                    continue;
+                }
+
+                if status != WIN32_ERROR(0) {
+                    return Err(format!("QueryDisplayConfig failed: {:?}", status));
+                }
+
+                paths.truncate(path_count as usize);
+                modes.truncate(mode_count as usize);
+
+                return Ok(Topology { paths, modes });
+            }
+        }
+    }
+
+    pub fn get_gdi_name(path: &DISPLAYCONFIG_PATH_INFO) -> Option<String> {
+        let mut info = DISPLAYCONFIG_SOURCE_DEVICE_NAME::default();
+        info.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+        info.header.size = std::mem::size_of::<DISPLAYCONFIG_SOURCE_DEVICE_NAME>() as u32;
+        info.header.adapterId = path.sourceInfo.adapterId;
+        info.header.id = path.sourceInfo.id;
+
+        if path.sourceInfo.id == DISPLAYCONFIG_PATH_MODE_IDX_INVALID {
+            return None;
+        }
+
+        let status = unsafe { DisplayConfigGetDeviceInfo(&mut info.header) };
+        if status == 0 {
+            let name = &info.viewGdiDeviceName;
+            let len = name.iter().position(|&c| c == 0).unwrap_or(name.len());
+            Some(String::from_utf16_lossy(&name[..len]))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_monitor_path(path: &DISPLAYCONFIG_PATH_INFO) -> Option<String> {
+        use windows::Win32::Devices::Display::{
+            DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME,
+        };
+        let mut info = DISPLAYCONFIG_TARGET_DEVICE_NAME::default();
+        info.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+        info.header.size = std::mem::size_of::<DISPLAYCONFIG_TARGET_DEVICE_NAME>() as u32;
+        info.header.adapterId = path.targetInfo.adapterId;
+        info.header.id = path.targetInfo.id;
+
+        let status = unsafe { DisplayConfigGetDeviceInfo(&mut info.header) };
+        if status == 0 {
+            let name = &info.monitorDevicePath;
+            let len = name.iter().position(|&c| c == 0).unwrap_or(name.len());
+            Some(String::from_utf16_lossy(&name[..len]))
+        } else {
+            None
+        }
+    }
+
+    pub fn apply_topology(topology: &Topology) -> Result<(), String> {
+        let flags =
+            SDC_APPLY | SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_SAVE_TO_DATABASE | SDC_ALLOW_CHANGES;
+
+        let result = unsafe {
+            SetDisplayConfig(
+                Some(&topology.paths),
+                Some(&topology.modes),
+                flags | SDC_NO_OPTIMIZATION,
+            )
+        };
+
+        if result == 0 {
+            return Ok(());
+        }
+
+        let result =
+            unsafe { SetDisplayConfig(Some(&topology.paths), Some(&topology.modes), flags) };
+
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(format!("SetDisplayConfig failed: {:?}", result))
+        }
+    }
+
+    pub fn get_all_paths_flags() -> QUERY_DISPLAY_CONFIG_FLAGS {
+        QDC_ALL_PATHS
+    }
+}
+
+#[cfg(windows)]
 pub fn enumerate_displays() -> Vec<DisplayDevice> {
     use windows::Win32::Graphics::Gdi::{
         EnumDisplayDevicesW, EnumDisplaySettingsW, DEVMODEW, DISPLAY_DEVICEW,
-        DISPLAY_DEVICE_ACTIVE, DISPLAY_DEVICE_MIRRORING_DRIVER, DISPLAY_DEVICE_PRIMARY_DEVICE,
-        ENUM_CURRENT_SETTINGS,
+        DISPLAY_DEVICE_MIRRORING_DRIVER, ENUM_DISPLAY_SETTINGS_MODE,
+    };
+
+    let topology = match win_ccd::get_topology(win_ccd::get_all_paths_flags()) {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
     };
 
     let mut devices = Vec::new();
@@ -59,23 +194,43 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
 
         let device_name_str = wide_to_string(&adapter.DeviceName);
         let device_string_str = wide_to_string(&adapter.DeviceString);
-        let is_active = (adapter.StateFlags & DISPLAY_DEVICE_ACTIVE) != 0;
-        let is_primary = (adapter.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) != 0;
         let is_mirror = (adapter.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) != 0;
 
-        // Skip mirroring drivers (virtual displays)
         if is_mirror {
             adapter_index += 1;
             continue;
         }
 
+        let path = topology
+            .paths
+            .iter()
+            .find(|p| win_ccd::get_gdi_name(p).map_or(false, |n| n == device_name_str));
+
+        let is_active = path.map_or(false, |p| {
+            (p.flags & win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0
+        });
+
+        let (pos_x, pos_y, is_primary) = if let Some(p) = path {
+            if is_active {
+                let mode_idx = unsafe { p.sourceInfo.Anonymous.modeInfoIdx } as usize;
+                if let Some(mode) = topology.modes.get(mode_idx) {
+                    let pos = unsafe { mode.Anonymous.sourceMode.position };
+                    (pos.x, pos.y, pos.x == 0 && pos.y == 0)
+                } else {
+                    (0, 0, false)
+                }
+            } else {
+                (0, 0, false)
+            }
+        } else {
+            (0, 0, false)
+        };
+
+        let mut available_modes = Vec::new();
         let name_wide: Vec<u16> = device_name_str
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
-
-        // Enumerate available modes first to verify this is a real display
-        let mut available_modes: Vec<DisplayMode> = Vec::new();
         let mut mode_index = 0u32;
         loop {
             let mut devmode = DEVMODEW {
@@ -85,7 +240,7 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
             if !unsafe {
                 EnumDisplaySettingsW(
                     windows::core::PCWSTR(name_wide.as_ptr()),
-                    windows::Win32::Graphics::Gdi::ENUM_DISPLAY_SETTINGS_MODE(mode_index),
+                    ENUM_DISPLAY_SETTINGS_MODE(mode_index),
                     &mut devmode,
                 )
             }
@@ -94,30 +249,24 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
                 break;
             }
 
-            let mode = DisplayMode {
-                width: devmode.dmPelsWidth,
-                height: devmode.dmPelsHeight,
-                refresh_rate: devmode.dmDisplayFrequency,
-                bits_per_pixel: devmode.dmBitsPerPel,
-            };
-
-            if mode.bits_per_pixel == 32 || mode.bits_per_pixel == 0 {
-                let dup = available_modes.iter().any(|m| {
+            if devmode.dmBitsPerPel == 32 || devmode.dmBitsPerPel == 0 {
+                let mode = DisplayMode {
+                    width: devmode.dmPelsWidth,
+                    height: devmode.dmPelsHeight,
+                    refresh_rate: devmode.dmDisplayFrequency,
+                    bits_per_pixel: devmode.dmBitsPerPel,
+                };
+                if !available_modes.iter().any(|m: &DisplayMode| {
                     m.width == mode.width
                         && m.height == mode.height
                         && m.refresh_rate == mode.refresh_rate
-                });
-                if !dup && mode.width > 0 && mode.height > 0 && mode.refresh_rate > 0 {
-                    available_modes.push(mode);
+                }) {
+                    if mode.width > 0 && mode.height > 0 {
+                        available_modes.push(mode);
+                    }
                 }
             }
             mode_index += 1;
-        }
-
-        // If no modes are available, this is likely not a physical display we can manage
-        if available_modes.is_empty() {
-            adapter_index += 1;
-            continue;
         }
 
         available_modes.sort_by(|a, b| {
@@ -127,75 +276,32 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
                 .then(b.refresh_rate.cmp(&a.refresh_rate))
         });
 
-        // Try getting current settings first.
-        let mut cur_devmode = DEVMODEW {
-            dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-            ..Default::default()
-        };
-        let has_real_current = unsafe {
-            EnumDisplaySettingsW(
-                windows::core::PCWSTR(name_wide.as_ptr()),
-                ENUM_CURRENT_SETTINGS,
-                &mut cur_devmode,
-            )
-        }
-        .as_bool()
-            && cur_devmode.dmPelsWidth > 0;
-
-        let mut has_metadata = has_real_current;
-
-        // Check if we got junk (0,0) for a non-primary monitor (common with ASTER hidden monitors).
-        let pos = unsafe { cur_devmode.Anonymous1.Anonymous2.dmPosition };
-        let is_junk_zero = !is_primary && pos.x == 0 && pos.y == 0;
-
-        // Fallback to registry settings ONLY for metadata/position if needed.
-        if !has_real_current || is_junk_zero {
-            let mut reg_devmode = DEVMODEW {
-                dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-                ..Default::default()
-            };
-            if unsafe {
-                EnumDisplaySettingsW(
-                    windows::core::PCWSTR(name_wide.as_ptr()),
-                    windows::Win32::Graphics::Gdi::ENUM_REGISTRY_SETTINGS,
-                    &mut reg_devmode,
-                )
-            }
-            .as_bool()
-                && reg_devmode.dmPelsWidth > 0
-            {
-                cur_devmode = reg_devmode;
-                has_metadata = true;
-            }
-        }
-
-        let (current_mode, position_x, position_y) = if has_metadata {
-            let pos = unsafe { cur_devmode.Anonymous1.Anonymous2.dmPosition };
-            (
-                Some(DisplayMode {
-                    width: cur_devmode.dmPelsWidth,
-                    height: cur_devmode.dmPelsHeight,
-                    refresh_rate: cur_devmode.dmDisplayFrequency,
-                    bits_per_pixel: cur_devmode.dmBitsPerPel,
-                }),
-                pos.x,
-                pos.y,
-            )
+        let current_mode = if is_active {
+            path.and_then(|p| {
+                let mode_idx = unsafe { p.sourceInfo.Anonymous.modeInfoIdx } as usize;
+                topology.modes.get(mode_idx).map(|m| unsafe {
+                    DisplayMode {
+                        width: m.Anonymous.sourceMode.width,
+                        height: m.Anonymous.sourceMode.height,
+                        refresh_rate: (p.targetInfo.refreshRate.Numerator as u64
+                            / p.targetInfo.refreshRate.Denominator.max(1) as u64)
+                            as u32,
+                        bits_per_pixel: 32,
+                    }
+                })
+            })
         } else {
-            (None, 0, 0)
+            None
         };
-
-        // Active state means it HAS a real current mode in GDI right now.
-        let is_actually_active = has_real_current;
 
         devices.push(DisplayDevice {
             index: adapter_index,
             device_name: device_name_str,
             device_string: device_string_str,
             is_primary,
-            is_active: is_actually_active,
-            position_x,
-            position_y,
+            is_active,
+            position_x: pos_x,
+            position_y: pos_y,
             current_mode,
             available_modes,
         });
@@ -206,165 +312,259 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
     devices
 }
 
-/// Set a monitor as the Windows primary display.
-///
-/// Algorithm:
-///  1. Get current DEVMODE (position + mode) for every active monitor.
-///  2. Compute the offset needed to move the target to (0,0).
-///  3. Apply that offset to every OTHER monitor with CDS_UPDATEREGISTRY | CDS_NORESET.
-///  4. Apply the target monitor with CDS_SET_PRIMARY | CDS_UPDATEREGISTRY | CDS_NORESET.
-///  5. Commit all changes with a single ChangeDisplaySettingsExW(NULL, NULL, ..., 0, NULL).
 #[cfg(windows)]
 pub fn set_primary_display(target_device_name: &str) -> ApplyResult {
-    use windows::Win32::Graphics::Gdi::{
-        ChangeDisplaySettingsExW, EnumDisplayDevicesW, EnumDisplaySettingsW, CDS_NORESET,
-        CDS_SET_PRIMARY, CDS_UPDATEREGISTRY, DEVMODEW, DISPLAY_DEVICEW,
-        DISPLAY_DEVICE_MIRRORING_DRIVER, DISPLAY_DEVICE_PRIMARY_DEVICE, DISP_CHANGE_SUCCESSFUL,
-        DM_BITSPERPEL, DM_DISPLAYFREQUENCY, DM_PELSHEIGHT, DM_PELSWIDTH, DM_POSITION,
-        ENUM_CURRENT_SETTINGS, ENUM_REGISTRY_SETTINGS,
+    let mut topology = match win_ccd::get_topology(win_ccd::get_all_paths_flags()) {
+        Ok(t) => t,
+        Err(e) => {
+            return ApplyResult {
+                success: false,
+                message: e,
+            }
+        }
     };
 
-    let mut monitors: Vec<(String, DEVMODEW)> = Vec::new();
-    let mut adapter_index = 0u32;
-
-    // 1. Collect EVERY physical monitor listed in the registry.
-    // For ASTER, we MUST move all monitors (even those on other seats)
-    // to prevent coordinate collisions/overlaps which cause the -1 error and resets.
-    loop {
-        let mut adapter = DISPLAY_DEVICEW {
-            cb: std::mem::size_of::<DISPLAY_DEVICEW>() as u32,
-            ..Default::default()
-        };
-        if !unsafe { EnumDisplayDevicesW(None, adapter_index, &mut adapter, 0) }.as_bool() {
-            break;
-        }
-
-        let is_mirror = (adapter.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) != 0;
-        if is_mirror {
-            adapter_index += 1;
-            continue;
-        }
-
-        let name = wide_to_string(&adapter.DeviceName);
-        let name_wide_vec: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
-        let pcwstr = windows::core::PCWSTR(name_wide_vec.as_ptr());
-
-        let mut devmode = DEVMODEW {
-            dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-            ..Default::default()
-        };
-
-        // 1. Try ENUM_CURRENT_SETTINGS first to get live positions
-        let mut has_settings =
-            unsafe { EnumDisplaySettingsW(pcwstr, ENUM_CURRENT_SETTINGS, &mut devmode) }.as_bool();
-
-        // 2. Fallback to Registry if Current returns (0,0) for non-primary (ASTER mask)
-        let is_primary_flag = (adapter.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) != 0;
-        let pos = unsafe { devmode.Anonymous1.Anonymous2.dmPosition };
-        if has_settings && !is_primary_flag && pos.x == 0 && pos.y == 0 {
-            has_settings = false;
-        }
-
-        if !has_settings {
-            has_settings =
-                unsafe { EnumDisplaySettingsW(pcwstr, ENUM_REGISTRY_SETTINGS, &mut devmode) }
-                    .as_bool();
-        }
-
-        if has_settings && devmode.dmPelsWidth > 0 && devmode.dmPelsHeight > 0 {
-            if devmode.dmBitsPerPel == 0 {
-                devmode.dmBitsPerPel = 32;
-            }
-            devmode.dmFields =
-                DM_POSITION | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY | DM_BITSPERPEL;
-            monitors.push((name, devmode));
-        }
-        adapter_index += 1;
-    }
-
-    // 2. Find the target monitor in this global list
-    let target_pos = match monitors.iter().find(|(n, _)| n == target_device_name) {
-        Some((_, dm)) => unsafe { dm.Anonymous1.Anonymous2.dmPosition },
+    let target_path_idx = match topology
+        .paths
+        .iter()
+        .position(|p| win_ccd::get_gdi_name(p).map_or(false, |n| n == target_device_name))
+    {
+        Some(idx) => idx,
         None => {
             return ApplyResult {
                 success: false,
-                message: format!(
-                    "Monitor '{}' not found in registry. It may be disabled.",
-                    target_device_name
-                ),
+                message: "Target display not found.".into(),
             }
         }
     };
 
-    // 3. Calculate the global offset to bring target to (0,0)
-    let offset_x = -target_pos.x;
-    let offset_y = -target_pos.y;
-
-    let mut last_result = DISP_CHANGE_SUCCESSFUL;
-
-    // 4. Update the position of EVERY monitor in the registry
-    for (name, devmode) in &mut monitors {
-        let name_wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
-        let is_target = name == target_device_name;
-
-        unsafe {
-            devmode.Anonymous1.Anonymous2.dmPosition.x += offset_x;
-            devmode.Anonymous1.Anonymous2.dmPosition.y += offset_y;
+    let (offset_x, offset_y) = {
+        let path = &topology.paths[target_path_idx];
+        if (path.flags & win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG) == 0 {
+            return ApplyResult {
+                success: false,
+                message: "Cannot set inactive display as primary.".into(),
+            };
         }
+        let mode_idx = unsafe { path.sourceInfo.Anonymous.modeInfoIdx } as usize;
+        let mode = &topology.modes[mode_idx];
+        let pos = unsafe { mode.Anonymous.sourceMode.position };
+        (-pos.x, -pos.y)
+    };
 
-        let flags = if is_target {
-            CDS_SET_PRIMARY | CDS_UPDATEREGISTRY | CDS_NORESET
-        } else {
-            CDS_UPDATEREGISTRY | CDS_NORESET
-        };
-
-        let result = unsafe {
-            ChangeDisplaySettingsExW(
-                windows::core::PCWSTR(name_wide.as_ptr()),
-                Some(devmode),
-                None,
-                flags,
-                None,
-            )
-        };
-
-        if result != DISP_CHANGE_SUCCESSFUL {
-            last_result = result;
+    for mode in &mut topology.modes {
+        if mode.infoType == windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE {
+            unsafe {
+                mode.Anonymous.sourceMode.position.x += offset_x;
+                mode.Anonymous.sourceMode.position.y += offset_y;
+            }
         }
     }
 
-    // 5. Commit all registry changes to live hardware in one operation
-    let commit = unsafe {
-        ChangeDisplaySettingsExW(
-            None,
-            None,
-            None,
-            windows::Win32::Graphics::Gdi::CDS_TYPE(0),
-            None,
-        )
+    let target_path = topology.paths.remove(target_path_idx);
+    topology.paths.insert(0, target_path);
+
+    match win_ccd::apply_topology(&topology) {
+        Ok(_) => ApplyResult {
+            success: true,
+            message: format!("'{}' is now primary.", target_device_name),
+        },
+        Err(e) => ApplyResult {
+            success: false,
+            message: e,
+        },
+    }
+}
+
+#[cfg(windows)]
+pub fn toggle_monitor_state(device_name: &str, enabled: bool) -> ApplyResult {
+    use windows::core::PCWSTR;
+    use windows::Win32::Graphics::Gdi::{EnumDisplayDevicesW, DISPLAY_DEVICEW};
+
+    let target_monitor_id = {
+        let name_wide: Vec<u16> = device_name
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let mut monitor_info = DISPLAY_DEVICEW {
+            cb: std::mem::size_of::<DISPLAY_DEVICEW>() as u32,
+            ..Default::default()
+        };
+        if unsafe { EnumDisplayDevicesW(PCWSTR(name_wide.as_ptr()), 0, &mut monitor_info, 0) }
+            .as_bool()
+        {
+            Some(wide_to_string(&monitor_info.DeviceID))
+        } else {
+            None
+        }
     };
 
-    if commit == DISP_CHANGE_SUCCESSFUL && last_result == DISP_CHANGE_SUCCESSFUL {
-        ApplyResult {
+    let mut topology = match win_ccd::get_topology(win_ccd::get_all_paths_flags()) {
+        Ok(t) => t,
+        Err(e) => {
+            return ApplyResult {
+                success: false,
+                message: e,
+            }
+        }
+    };
+
+    let path_idx = match topology.paths.iter().position(|p| {
+        if let Some(ref tid) = target_monitor_id {
+            if let Some(mid) = win_ccd::get_monitor_path(p) {
+                if mid == *tid {
+                    return true;
+                }
+            }
+        }
+        win_ccd::get_gdi_name(p).map_or(false, |n| n == device_name)
+    }) {
+        Some(idx) => idx,
+        None => {
+            return ApplyResult {
+                success: false,
+                message: "Display not found.".into(),
+            }
+        }
+    };
+
+    if enabled {
+        topology.paths[path_idx].flags |= win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG;
+        // Reset mode indices to tell Windows to find a fresh valid mode for this path
+        topology.paths[path_idx].sourceInfo.Anonymous.modeInfoIdx =
+            win_ccd::DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
+        topology.paths[path_idx].targetInfo.Anonymous.modeInfoIdx =
+            win_ccd::DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
+    } else {
+        let active_count = topology
+            .paths
+            .iter()
+            .filter(|p| (p.flags & win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0)
+            .count();
+        if active_count <= 1
+            && (topology.paths[path_idx].flags & win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0
+        {
+            return ApplyResult {
+                success: false,
+                message: "Cannot disable the last active display.".into(),
+            };
+        }
+        topology.paths[path_idx].flags &= !win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG;
+    }
+
+    let mut primary_exists = false;
+    for p in &topology.paths {
+        if (p.flags & win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0 {
+            let mode_idx = unsafe { p.sourceInfo.Anonymous.modeInfoIdx };
+            if mode_idx != win_ccd::DISPLAYCONFIG_PATH_MODE_IDX_INVALID {
+                if let Some(mode) = topology.modes.get(mode_idx as usize) {
+                    let pos = unsafe { mode.Anonymous.sourceMode.position };
+                    if pos.x == 0 && pos.y == 0 {
+                        primary_exists = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if !primary_exists {
+        if let Some(first_active_idx) = topology
+            .paths
+            .iter()
+            .position(|p| (p.flags & win_ccd::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0)
+        {
+            let ox_oy = unsafe {
+                let p = &topology.paths[first_active_idx];
+                let mode_idx = p.sourceInfo.Anonymous.modeInfoIdx;
+                if mode_idx != win_ccd::DISPLAYCONFIG_PATH_MODE_IDX_INVALID {
+                    topology.modes.get(mode_idx as usize).map(|m| {
+                        let pos = m.Anonymous.sourceMode.position;
+                        (-pos.x, -pos.y)
+                    })
+                } else {
+                    None
+                }
+            };
+
+            if let Some((ox, oy)) = ox_oy {
+                for mode in &mut topology.modes {
+                    if mode.infoType
+                        == windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE
+                    {
+                        unsafe {
+                            mode.Anonymous.sourceMode.position.x += ox;
+                            mode.Anonymous.sourceMode.position.y += oy;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    match win_ccd::apply_topology(&topology) {
+        Ok(_) => ApplyResult {
             success: true,
             message: format!(
-                "'{}' set as primary; entire desktop shifted.",
-                target_device_name
+                "Monitor {} {}.",
+                device_name,
+                if enabled { "connected" } else { "disconnected" }
             ),
-        }
-    } else {
-        let code = if commit != DISP_CHANGE_SUCCESSFUL {
-            commit.0
-        } else {
-            last_result.0
-        };
-        ApplyResult {
+        },
+        Err(e) => ApplyResult {
             success: false,
-            message: format!(
-                "Failed to update layout (code: {}). Relative positions may overlap.",
-                code
-            ),
+            message: e,
+        },
+    }
+}
+
+pub fn apply_display_settings(
+    device_name: &str,
+    width: u32,
+    height: u32,
+    refresh_rate: u32,
+    _persist: bool,
+) -> ApplyResult {
+    let mut topology = match win_ccd::get_topology(win_ccd::get_all_paths_flags()) {
+        Ok(t) => t,
+        Err(e) => {
+            return ApplyResult {
+                success: false,
+                message: e,
+            }
         }
+    };
+
+    let path = match topology
+        .paths
+        .iter_mut()
+        .find(|p| win_ccd::get_gdi_name(p).map_or(false, |n| n == device_name))
+    {
+        Some(p) => p,
+        None => {
+            return ApplyResult {
+                success: false,
+                message: "Display not found.".into(),
+            }
+        }
+    };
+
+    let mode_idx = unsafe { path.sourceInfo.Anonymous.modeInfoIdx } as usize;
+    let mode = &mut topology.modes[mode_idx];
+    mode.Anonymous.sourceMode.width = width;
+    mode.Anonymous.sourceMode.height = height;
+    path.targetInfo.refreshRate.Numerator = refresh_rate;
+    path.targetInfo.refreshRate.Denominator = 1;
+
+    match win_ccd::apply_topology(&topology) {
+        Ok(_) => ApplyResult {
+            success: true,
+            message: format!("Settings applied to {}.", device_name),
+        },
+        Err(e) => ApplyResult {
+            success: false,
+            message: e,
+        },
     }
 }
 
@@ -372,231 +572,24 @@ pub fn set_primary_display(target_device_name: &str) -> ApplyResult {
 pub fn set_primary_display(_target_device_name: &str) -> ApplyResult {
     ApplyResult {
         success: false,
-        message: "Not supported on this platform".to_string(),
+        message: "Not supported.".into(),
     }
 }
-
 #[cfg(not(windows))]
 pub fn enumerate_displays() -> Vec<DisplayDevice> {
     vec![]
 }
-
-#[cfg(windows)]
-pub fn apply_display_settings(
-    device_name: &str,
-    width: u32,
-    height: u32,
-    refresh_rate: u32,
-    persist: bool,
-) -> ApplyResult {
-    use windows::Win32::Graphics::Gdi::{
-        ChangeDisplaySettingsExW, EnumDisplaySettingsW, CDS_GLOBAL, CDS_UPDATEREGISTRY, DEVMODEW,
-        DISP_CHANGE_SUCCESSFUL, DM_BITSPERPEL, DM_DISPLAYFREQUENCY, DM_PELSHEIGHT, DM_PELSWIDTH,
-        DM_POSITION, ENUM_CURRENT_SETTINGS,
-    };
-
-    let name_wide: Vec<u16> = device_name
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
-    let pcwstr = windows::core::PCWSTR(name_wide.as_ptr());
-
-    // IMPORTANT: Fetch the current DEVMODE first.
-    // Changing resolution without explicitly including DM_POSITION and its current values
-    // causes Windows to reset the monitor to (0,0).
-    let mut devmode = DEVMODEW {
-        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-        ..Default::default()
-    };
-
-    if !unsafe { EnumDisplaySettingsW(pcwstr, ENUM_CURRENT_SETTINGS, &mut devmode) }.as_bool() {
-        return ApplyResult {
-            success: false,
-            message: format!("Could not get current settings for {}", device_name),
-        };
-    }
-
-    devmode.dmPelsWidth = width;
-    devmode.dmPelsHeight = height;
-    devmode.dmDisplayFrequency = refresh_rate;
-    if devmode.dmBitsPerPel == 0 {
-        devmode.dmBitsPerPel = 32;
-    }
-
-    // IMPORTANT: Tell Windows which fields we want to change!
-    devmode.dmFields |= windows::Win32::Graphics::Gdi::DM_PELSWIDTH
-        | windows::Win32::Graphics::Gdi::DM_PELSHEIGHT
-        | windows::Win32::Graphics::Gdi::DM_DISPLAYFREQUENCY
-        | windows::Win32::Graphics::Gdi::DM_BITSPERPEL
-        | windows::Win32::Graphics::Gdi::DM_POSITION;
-
-    let flags = if persist {
-        CDS_UPDATEREGISTRY | CDS_GLOBAL
-    } else {
-        windows::Win32::Graphics::Gdi::CDS_TYPE(0)
-    };
-
-    // Single step apply for single monitor resolution/refresh changes.
-    // This is more reliable for immediate feedback than the two-step registry/commit process.
-    let res = unsafe { ChangeDisplaySettingsExW(pcwstr, Some(&mut devmode), None, flags, None) };
-
-    if res == DISP_CHANGE_SUCCESSFUL || res == windows::Win32::Graphics::Gdi::DISP_CHANGE_NOTUPDATED
-    {
-        ApplyResult {
-            success: true,
-            message: format!(
-                "Applied {}x{}@{}Hz to {}",
-                width, height, refresh_rate, device_name
-            ),
-        }
-    } else {
-        let result_code = res.0;
-        let reason = match result_code {
-            -1 => "Display change failed (DISP_CHANGE_FAILED)",
-            -2 => "Bad flags (DISP_CHANGE_BADFLAGS)",
-            -3 => "Bad parameters (DISP_CHANGE_BADPARAM)",
-            -4 => "Bad dual view (DISP_CHANGE_BADDUALVIEW)",
-            -5 => "Bad mode (DISP_CHANGE_BADMODE)",
-            -6 => "Not updated (DISP_CHANGE_NOTUPDATED)",
-            -7 => "Restart required (DISP_CHANGE_RESTART)",
-            _ => "Unknown error",
-        };
-        ApplyResult {
-            success: false,
-            message: format!(
-                "Failed to apply settings: {} (code: {})",
-                reason, result_code
-            ),
-        }
-    }
-}
-
-#[cfg(not(windows))]
-pub fn apply_display_settings(
-    _device_name: &str,
-    _width: u32,
-    _height: u32,
-    _refresh_rate: u32,
-    _persist: bool,
-) -> ApplyResult {
-    ApplyResult {
-        success: false,
-        message: "Not supported on this platform".to_string(),
-    }
-}
-
-#[cfg(windows)]
-pub fn toggle_monitor_state(device_name: &str, enabled: bool) -> ApplyResult {
-    use windows::Win32::Graphics::Gdi::{
-        ChangeDisplaySettingsExW, EnumDisplaySettingsW, CDS_GLOBAL, CDS_UPDATEREGISTRY, DEVMODEW,
-        DISP_CHANGE_SUCCESSFUL, DM_PELSHEIGHT, DM_PELSWIDTH, DM_POSITION, ENUM_REGISTRY_SETTINGS,
-    };
-
-    let name_wide_vec: Vec<u16> = device_name
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
-    let pcwstr = windows::core::PCWSTR(name_wide_vec.as_ptr());
-
-    let mut devmode = DEVMODEW {
-        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
-        ..Default::default()
-    };
-
-    if enabled {
-        // 1. Try Registry settings (user's preferred mode)
-        let has_reg =
-            unsafe { EnumDisplaySettingsW(pcwstr, ENUM_REGISTRY_SETTINGS, &mut devmode) }.as_bool();
-
-        if !has_reg || devmode.dmPelsWidth == 0 {
-            // 2. Fallback: Find native/preferred mode (index 0)
-            if !unsafe {
-                EnumDisplaySettingsW(
-                    pcwstr,
-                    windows::Win32::Graphics::Gdi::ENUM_DISPLAY_SETTINGS_MODE(0),
-                    &mut devmode,
-                )
-            }
-            .as_bool()
-            {
-                return ApplyResult {
-                    success: false,
-                    message: format!("Could not find any valid mode to enable {}", device_name),
-                };
-            }
-        }
-    } else {
-        // SAFETY: Don't disconnect the primary!
-        let mut adapter = windows::Win32::Graphics::Gdi::DISPLAY_DEVICEW {
-            cb: std::mem::size_of::<windows::Win32::Graphics::Gdi::DISPLAY_DEVICEW>() as u32,
-            ..Default::default()
-        };
-        let mut adapter_index = 0u32;
-        let mut is_primary = false;
-        loop {
-            if !unsafe {
-                windows::Win32::Graphics::Gdi::EnumDisplayDevicesW(
-                    None,
-                    adapter_index,
-                    &mut adapter,
-                    0,
-                )
-            }
-            .as_bool()
-            {
-                break;
-            }
-            if wide_to_string(&adapter.DeviceName) == device_name {
-                is_primary = (adapter.StateFlags
-                    & windows::Win32::Graphics::Gdi::DISPLAY_DEVICE_PRIMARY_DEVICE)
-                    != 0;
-                break;
-            }
-            adapter_index += 1;
-        }
-
-        if is_primary {
-            return ApplyResult {
-                success: false,
-                message: "Cannot disconnect the primary display.".to_string(),
-            };
-        }
-
-        devmode.dmPelsWidth = 0;
-        devmode.dmPelsHeight = 0;
-        unsafe {
-            devmode.Anonymous1.Anonymous2.dmPosition.x = 0;
-            devmode.Anonymous1.Anonymous2.dmPosition.y = 0;
-        }
-    }
-
-    devmode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_POSITION;
-
-    // Use a single direct call for immediate hardware effect
-    let flags = CDS_UPDATEREGISTRY | CDS_GLOBAL;
-    let res = unsafe { ChangeDisplaySettingsExW(pcwstr, Some(&mut devmode), None, flags, None) };
-
-    if res == DISP_CHANGE_SUCCESSFUL {
-        ApplyResult {
-            success: true,
-            message: format!(
-                "Monitor {} {}",
-                device_name,
-                if enabled { "connected" } else { "disconnected" }
-            ),
-        }
-    } else {
-        ApplyResult {
-            success: false,
-            message: format!("Failed to toggle monitor {} (code: {})", device_name, res.0),
-        }
-    }
-}
-
 #[cfg(not(windows))]
 pub fn toggle_monitor_state(_device_name: &str, _enabled: bool) -> ApplyResult {
     ApplyResult {
         success: false,
-        message: "Not supported on this platform".to_string(),
+        message: "Not supported.".into(),
+    }
+}
+#[cfg(not(windows))]
+pub fn apply_display_settings(_: &str, _: u32, _: u32, _: u32, _: bool) -> ApplyResult {
+    ApplyResult {
+        success: false,
+        message: "Not supported.".into(),
     }
 }
