@@ -1602,10 +1602,19 @@
         const resOpts = resolutions.map(r => `<option value="${r}">${r}</option>`).join('');
 
         // Get refresh rates for selected resolution
-        const defaultRes = cur ? `${cur.width}x${cur.height}` : resolutions[0];
+        // Use native resolution (always landscape dimensions from available_modes)
+        const defaultRes = cur ? `${cur.width}x${cur.height}` : (resolutions[0] || '');
+        
         const refreshRates = d.available_modes
-          .filter(m => `${m.width}x${m.height}` === defaultRes)
-          .map(m => m.refresh_rate);
+          .filter(m => {
+            // Check both landscape and portrait dimensions (Windows reports modes based on current orientation)
+            const landscapeRes = `${m.width}x${m.height}`;
+            const portraitRes = `${m.height}x${m.width}`;
+            return landscapeRes === defaultRes || portraitRes === defaultRes;
+          })
+          .map(m => m.refresh_rate)
+          .sort((a, b) => b - a); // Sort descending - highest first
+
         const rateOpts = refreshRates.map(r => `<option value="${r}" ${cur && r === cur.refresh_rate ? 'selected' : ''}>${r}Hz</option>`).join('');
 
         const shortName = d.device_name.replace(/\\\\.\\/, '').replace(/DISPLAY/, 'Display ');
@@ -1744,15 +1753,17 @@
       // Get current refresh rate (preserve if possible)
       const currentRate = parseInt(rateSel.value) || d.current_mode?.refresh_rate || 60;
 
-      // Get all modes that match this resolution (dropdown shows native dimensions)
-      const matchingModes = d.available_modes.filter(m => m.width === w && m.height === h);
+      // Get all modes that match this resolution (check both landscape and portrait)
+      const matchingModes = d.available_modes.filter(m => 
+        (m.width === w && m.height === h) || (m.width === h && m.height === w)
+      );
 
-      // Get unique refresh rates
-      const rates = [...new Set(matchingModes.map(m => m.refresh_rate))].sort((a, b) => a - b);
+      // Get unique refresh rates (sorted descending - highest first)
+      const rates = [...new Set(matchingModes.map(m => m.refresh_rate))].sort((a, b) => b - a);
 
       if (rates.length === 0) {
-        // Fallback: show all available rates for this display
-        const allRates = [...new Set(d.available_modes.map(m => m.refresh_rate))].sort((a, b) => a - b);
+        // Fallback: show all available rates for this display (sorted descending)
+        const allRates = [...new Set(d.available_modes.map(m => m.refresh_rate))].sort((a, b) => b - a);
         rateSel.innerHTML = allRates.map(r => `<option value="${r}">${r}Hz</option>`).join('');
       } else {
         rateSel.innerHTML = rates.map(r => `<option value="${r}">${r}Hz</option>`).join('');
@@ -1904,7 +1915,7 @@
 
         await invoke('save_user_profile', {
           username: currentUser,
-          assignments: { [key]: assignment },
+          assignments: allProfiles.users[currentUser].assignments,
         });
         await loadProfiles();
         toast('Saved to profile', 'info');

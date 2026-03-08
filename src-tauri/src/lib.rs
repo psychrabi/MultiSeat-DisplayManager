@@ -2,7 +2,7 @@ mod display;
 mod profiles;
 
 use display::{ApplyResult, DisplayDevice, DisplayOrientation};
-use profiles::{AllProfiles, DisplayAssignment, UserDisplayProfile, display_id_to_key, remap_profile_assignments};
+use profiles::{AllProfiles, DisplayAssignment, UserDisplayProfile, remap_profile_assignments};
 use std::collections::HashMap;
 use tauri::Manager;
 
@@ -35,28 +35,16 @@ fn save_user_profile(
     assignments: HashMap<String, DisplayAssignment>,
 ) -> Result<(), String> {
     let mut all = profiles::load_profiles();
-    
+
     // Get or create user profile
     let user_profile = all.users.entry(username.clone()).or_insert_with(UserDisplayProfile::default);
-    
-    // Save current layout as last known good for rollback
+
+    // Save current layout as last known good for rollback (before making changes)
     let current_displays = display::enumerate_displays();
     let mut current_layout = Vec::new();
     for d in &current_displays {
         if let Some(ref mode) = d.current_mode {
-            let key = display_id_to_key(&d.display_id);
             current_layout.push(DisplayAssignment {
-                display_id: d.display_id.clone(),
-                mode: mode.clone(),
-                position_x: d.position_x,
-                position_y: d.position_y,
-                is_primary: d.is_primary,
-                orientation: format!("{:?}", d.orientation),
-                scale_factor: d.scale_factor,
-                monitor_name: Some(d.device_string.clone()),
-            });
-            // Update assignments with current settings
-            user_profile.assignments.insert(key, DisplayAssignment {
                 display_id: d.display_id.clone(),
                 mode: mode.clone(),
                 position_x: d.position_x,
@@ -73,12 +61,11 @@ fn save_user_profile(
     if !current_layout.is_empty() {
         user_profile.last_known_good_layout = Some(current_layout);
     }
-    
-    // Merge with provided assignments (for specific monitor changes)
-    for (key, assignment) in assignments {
-        user_profile.assignments.insert(key, assignment);
-    }
-    
+
+    // Replace assignments with the ones passed in (not merge)
+    // The frontend sends the complete profile state after any changes
+    user_profile.assignments = assignments;
+
     profiles::save_profiles(&all)
 }
 
@@ -126,8 +113,30 @@ fn apply_profile_for_user(username: String) -> Vec<ApplyResult> {
 
             if let Some(display) = matching_display {
                 eprintln!("[apply_profile] Found matching display: {}", display.device_name);
-                
-                // Apply resolution/refresh using the actual device_name
+
+                // Step 1: Apply orientation FIRST (changes available modes)
+                let target_orientation = match assignment.orientation.as_str() {
+                    "Portrait" | "portrait" => display::DisplayOrientation::Portrait,
+                    "LandscapeFlipped" | "landscapeflipped" => display::DisplayOrientation::LandscapeFlipped,
+                    "PortraitFlipped" | "portraitflipped" => display::DisplayOrientation::PortraitFlipped,
+                    _ => display::DisplayOrientation::Landscape,
+                };
+                if display.orientation != target_orientation {
+                    eprintln!("[apply_profile] Applying orientation: {:?} (current: {:?})", 
+                        target_orientation, display.orientation);
+                    let orient_result = display::set_display_orientation(
+                        &display.device_name,
+                        target_orientation,
+                    );
+                    eprintln!("[apply_profile] Orientation result: {:?}", orient_result.success);
+                    results.push(orient_result);
+                    // Update local display orientation for subsequent checks
+                    // Don't fail if orientation change fails, continue with resolution
+                } else {
+                    eprintln!("[apply_profile] Orientation already correct: {:?}", target_orientation);
+                }
+
+                // Step 2: Apply resolution/refresh (now with correct orientation modes)
                 let r = display::apply_display_settings(
                     &display.device_name,
                     assignment.mode.width,
@@ -138,8 +147,11 @@ fn apply_profile_for_user(username: String) -> Vec<ApplyResult> {
                 eprintln!("[apply_profile] Resolution result: {:?}", r.success);
                 results.push(r);
 
-                // Apply position if different
+                // Step 3: Apply position LAST (after resolution/orientation are set)
                 if assignment.position_x != display.position_x || assignment.position_y != display.position_y {
+                    eprintln!("[apply_profile] Applying position: ({}, {}) (current: {}, {})", 
+                        assignment.position_x, assignment.position_y,
+                        display.position_x, display.position_y);
                     let pos_result = display::set_display_position(
                         &display.device_name,
                         assignment.position_x,
@@ -147,22 +159,9 @@ fn apply_profile_for_user(username: String) -> Vec<ApplyResult> {
                     );
                     eprintln!("[apply_profile] Position result: {:?}", pos_result.success);
                     results.push(pos_result);
-                }
-
-                // Apply orientation if different
-                let target_orientation = match assignment.orientation.as_str() {
-                    "Portrait" => display::DisplayOrientation::Portrait,
-                    "LandscapeFlipped" => display::DisplayOrientation::LandscapeFlipped,
-                    "PortraitFlipped" => display::DisplayOrientation::PortraitFlipped,
-                    _ => display::DisplayOrientation::Landscape,
-                };
-                if display.orientation != target_orientation {
-                    let orient_result = display::set_display_orientation(
-                        &display.device_name,
-                        target_orientation,
-                    );
-                    eprintln!("[apply_profile] Orientation result: {:?}", orient_result.success);
-                    results.push(orient_result);
+                } else {
+                    eprintln!("[apply_profile] Position already correct: ({}, {})", 
+                        assignment.position_x, assignment.position_y);
                 }
             } else {
                 eprintln!("[apply_profile] No matching display found for assignment");
