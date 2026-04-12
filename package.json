@@ -3,14 +3,22 @@
   "version": "1.0.0",
   "description": "ASTER Multi-Seat Display Settings Manager",
   "scripts": {
-    "tauri": "tauri",
+    "frontend:dev": "vite",
+    "frontend:build": "vite build",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "tauri": "tauri"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.10.0"
+    "@tauri-apps/cli": "^2.10.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.8"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.10.1"
+    "@tauri-apps/api": "^2.10.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-router": "^7.14.0",
+    "zustand": "^5.0.12"
   }
 }

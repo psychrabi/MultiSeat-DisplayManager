@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "identifier": "com.aster.display-manager",
   "build": {
-    "frontendDist": "../src"
+    "beforeDevCommand": "npm run frontend:dev",
+    "beforeBuildCommand": "npm run frontend:build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,

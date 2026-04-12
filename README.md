@@ -1,6 +1,6 @@
 # ASTER Display Manager
 
-A native Windows desktop app (built with Tauri + Rust) to manage display resolution and refresh rates per user for ASTER multi-seat setups.
+A native Windows desktop app (built with Tauri + Rust + React) to manage display resolution and refresh rates per user for ASTER multi-seat setups.
 
 ## Features
 
@@ -28,10 +28,10 @@ cd aster-display-manager
 # 2. Install JS dependencies
 npm install
 
-# 3. Development (hot-reload)
+# 3. Development (starts Tauri + the React dev server)
 npm run dev
 
-# 4. Production build (creates installer in src-tauri/target/release/bundle/)
+# 4. Production build (builds the React frontend and creates the installer)
 npm run build
 ```
 
@@ -80,8 +80,11 @@ This way, every user who logs in will automatically get their display configured
 
 ```
 aster-display-manager/
+├── index.html              # Vite entry HTML + shared app styles
 ├── src/
-│   └── index.html          # Frontend UI (vanilla JS + CSS)
+│   ├── App.jsx             # React UI
+│   ├── api.js              # Tauri invoke wrapper + browser fallback
+│   └── main.jsx            # React entry point
 ├── src-tauri/
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
@@ -90,5 +93,6 @@ aster-display-manager/
 │       ├── lib.rs          # Tauri commands
 │       ├── display.rs      # Windows GDI display API
 │       └── profiles.rs     # Profile persistence + startup registry
+├── vite.config.js
 └── package.json
 ```
