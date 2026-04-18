@@ -141,66 +141,77 @@ export function getAssignmentMonitorName(key, assignment) {
 }
 
 export function snapLayoutPosition(targetDisplay, proposedX, proposedY, displays) {
-  let nextX = proposedX;
-  let nextY = proposedY;
   const targetDimensions = getDisplayDimensions(targetDisplay);
+  const activeDisplays = displays.filter(
+    (d) => d.device_name !== targetDisplay.device_name && d.is_active
+  );
 
-  displays.forEach((display) => {
-    if (display.device_name === targetDisplay.device_name || !display.is_active) {
-      return;
-    }
+  if (activeDisplays.length === 0) {
+    return { x: proposedX, y: proposedY };
+  }
 
-    const otherDimensions = getDisplayDimensions(display);
+  const SNAP_THRESHOLD = 50;
+  let bestPos = { x: proposedX, y: proposedY };
+  let minDistance = Infinity;
 
-    if (Math.abs(nextX + targetDimensions.width - display.position_x) <= SNAP_THRESHOLD) {
-      if (
-        Math.abs(
-          nextY + targetDimensions.height / 2 - (display.position_y + otherDimensions.height / 2),
-        ) <= SNAP_THRESHOLD * 2
-      ) {
-        nextX = display.position_x - targetDimensions.width;
-        nextY = display.position_y;
+  const magnet = (val, target) => (Math.abs(val - target) <= SNAP_THRESHOLD ? target : val);
+
+  activeDisplays.forEach((display) => {
+    const otherDims = getDisplayDimensions(display);
+
+    // 1. Snapping to the Right edge of `display`
+    let rightEdgeX = display.position_x + otherDims.width;
+    let rightEdgeY = proposedY;
+    rightEdgeY = magnet(rightEdgeY, display.position_y); // align top
+    rightEdgeY = magnet(rightEdgeY, display.position_y + otherDims.height - targetDimensions.height); // align bottom
+    rightEdgeY = magnet(rightEdgeY, Math.round(display.position_y + (otherDims.height - targetDimensions.height) / 2)); // align center
+    const yMin = display.position_y - targetDimensions.height + 1;
+    const yMax = display.position_y + otherDims.height - 1;
+    rightEdgeY = Math.max(yMin, Math.min(yMax, rightEdgeY));
+
+    // 2. Snapping to the Left edge of `display`
+    let leftEdgeX = display.position_x - targetDimensions.width;
+    let leftEdgeY = proposedY;
+    leftEdgeY = magnet(leftEdgeY, display.position_y);
+    leftEdgeY = magnet(leftEdgeY, display.position_y + otherDims.height - targetDimensions.height);
+    leftEdgeY = magnet(leftEdgeY, Math.round(display.position_y + (otherDims.height - targetDimensions.height) / 2));
+    leftEdgeY = Math.max(yMin, Math.min(yMax, leftEdgeY));
+
+    // 3. Snapping to the Bottom edge of `display`
+    let bottomEdgeY = display.position_y + otherDims.height;
+    let bottomEdgeX = proposedX;
+    bottomEdgeX = magnet(bottomEdgeX, display.position_x); // align left
+    bottomEdgeX = magnet(bottomEdgeX, display.position_x + otherDims.width - targetDimensions.width); // align right
+    bottomEdgeX = magnet(bottomEdgeX, Math.round(display.position_x + (otherDims.width - targetDimensions.width) / 2)); // align center
+    const xMin = display.position_x - targetDimensions.width + 1;
+    const xMax = display.position_x + otherDims.width - 1;
+    bottomEdgeX = Math.max(xMin, Math.min(xMax, bottomEdgeX));
+
+    // 4. Snapping to the Top edge of `display`
+    let topEdgeY = display.position_y - targetDimensions.height;
+    let topEdgeX = proposedX;
+    topEdgeX = magnet(topEdgeX, display.position_x);
+    topEdgeX = magnet(topEdgeX, display.position_x + otherDims.width - targetDimensions.width);
+    topEdgeX = magnet(topEdgeX, Math.round(display.position_x + (otherDims.width - targetDimensions.width) / 2));
+    topEdgeX = Math.max(xMin, Math.min(xMax, topEdgeX));
+
+    const candidates = [
+      { x: rightEdgeX, y: rightEdgeY },
+      { x: leftEdgeX, y: leftEdgeY },
+      { x: bottomEdgeX, y: bottomEdgeY },
+      { x: topEdgeX, y: topEdgeY },
+    ];
+
+    candidates.forEach((cand) => {
+      const dist = Math.sqrt(Math.pow(cand.x - proposedX, 2) + Math.pow(cand.y - proposedY, 2));
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestPos = cand;
       }
-    }
-
-    if (
-      Math.abs(nextX - (display.position_x + otherDimensions.width)) <= SNAP_THRESHOLD
-    ) {
-      if (
-        Math.abs(
-          nextY + targetDimensions.height / 2 - (display.position_y + otherDimensions.height / 2),
-        ) <= SNAP_THRESHOLD * 2
-      ) {
-        nextX = display.position_x + otherDimensions.width;
-        nextY = display.position_y;
-      }
-    }
-
-    if (Math.abs(nextY - display.position_y) <= SNAP_THRESHOLD) {
-      nextY = display.position_y;
-    }
-
-    if (
-      Math.abs(
-        nextY + targetDimensions.height - (display.position_y + otherDimensions.height),
-      ) <= SNAP_THRESHOLD
-    ) {
-      nextY = display.position_y + otherDimensions.height - targetDimensions.height;
-    }
-
-    if (
-      Math.abs(
-        nextY + targetDimensions.height / 2 - (display.position_y + otherDimensions.height / 2),
-      ) <= SNAP_THRESHOLD
-    ) {
-      nextY = display.position_y + (otherDimensions.height - targetDimensions.height) / 2;
-    }
+    });
   });
 
-  return {
-    x: Math.round(nextX / 100) * 100,
-    y: Math.round(nextY / 100) * 100,
-  };
+  return bestPos;
 }
 
 

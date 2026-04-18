@@ -75,8 +75,10 @@ export default function Monitors() {
 
           <LayoutPreview
             displays={displays}
+            monitorSelections={monitorSelections}
             onDraftPosition={draftPosition}
             onSelectMonitor={previewSelectMonitor}
+            highlightedMonitor={highlightedMonitor}
           />
 
           {hasPendingLayoutChanges && (
@@ -105,27 +107,29 @@ export default function Monitors() {
         ) : displays.length === 0 ? (
           <div className="empty-copy">No monitors detected.</div>
         ) : (
-          <>
+          <div>
 
 
             {/* Settings */}
-            <div className="text-xs font-bold tracking-widest text-base-content/50 uppercase mb-4 mt-6 pb-2 border-b border-base-300">
-              Monitor settings
 
 
-              <MonitorSettingsPanel
-                display={selectedDisplay}
-                selection={selectedSelection}
-                autoSave={settings.autoSave}
-                busy={busyMonitor === selectedDisplay?.device_name}
-                onResolutionChange={resolutionChange}
-                onSelectionChange={selectionChange}
-                onApply={applyMonitorSettings}
-                onToggleMonitor={toggleMonitor}
-                onMakePrimary={makePrimary}
-              />
-            </div>
-          </>
+            <div className="text-xs font-bold tracking-widest text-base-content/50 uppercase mb-4 pb-2 border-b border-base-300">Monitor settings</div>
+
+
+
+            <MonitorSettingsPanel
+              display={selectedDisplay}
+              selection={selectedSelection}
+              autoSave={settings.autoSave}
+              busy={busyMonitor === selectedDisplay?.device_name}
+              onResolutionChange={resolutionChange}
+              onSelectionChange={selectionChange}
+              onApply={applyMonitorSettings}
+              onToggleMonitor={toggleMonitor}
+              onMakePrimary={makePrimary}
+            />
+
+          </div>
         )}
       </div>
     </div>

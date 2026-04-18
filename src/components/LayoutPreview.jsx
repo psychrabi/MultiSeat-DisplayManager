@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { getDisplayDimensions } from "../js/utils";
 import { snapLayoutPosition } from "../js/utils";
+import { Star } from "lucide-react";
 
-const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
+const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectMonitor, highlightedMonitor }) => {
   const innerRef = useRef(null);
   const dragRef = useRef(null);
   const suppressClickRef = useRef(false);
@@ -97,11 +98,28 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
 
   const DEFAULT_MODE = { refresh_rate: 60 };
 
-  const allDisplays = displays.map((display, index) => ({
-    ...display,
-    previewIndex: index,
-    current_mode: display.current_mode ?? DEFAULT_MODE,
-  }));
+  const allDisplays = displays.map((display, index) => {
+    let mode = display.current_mode ?? DEFAULT_MODE;
+    let orientation = display.orientation;
+
+    const selection = monitorSelections?.[display.device_name];
+    if (selection) {
+      if (selection.resolution) {
+        const [w, h] = selection.resolution.split("x").map(Number);
+        mode = { ...mode, width: w, height: h };
+      }
+      if (selection.orientation) {
+        orientation = selection.orientation;
+      }
+    }
+
+    return {
+      ...display,
+      previewIndex: index,
+      current_mode: mode,
+      orientation: orientation,
+    };
+  });
 
   let minX = Infinity;
   let minY = Infinity;
@@ -147,9 +165,10 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
           return (
             <div
               key={display.device_name}
-              className={`absolute bg-base-100 border-2 border-base-content/20 rounded-md flex flex-col items-center justify-center text-base-content/60 transition-[border-color,transform] duration-200 shadow-md select-none z-10 cursor-grab active:cursor-grabbing hover:border-primary hover:scale-[1.02] hover:z-20 ${display.is_primary ? "border-primary bg-primary/5 after:content-['PRIMARY'] after:absolute after:-top-2.5 after:left-1/2 after:-translate-x-1/2 after:bg-primary after:text-primary-content after:text-[8px] after:font-extrabold after:px-1.5 after:py-px after:rounded-sm after:tracking-wider z-10" : ""
+              className={`absolute bg-base-100 border flex flex-col items-center justify-center text-base-content/60 transition-[border-color,transform] duration-200 shadow-md select-none cursor-grab active:cursor-grabbing hover:border-accent  hover:z-20 rounded-md ${highlightedMonitor === display.device_name ? "border-accent z-30 shadow-accent/20" : "border-base-content/20 z-10"
+                } ${display.is_primary ? "bg-primary/5" : ""
                 } ${!display.is_active ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20 hover:scale-100 !active:cursor-default" : ""
-                } ${dragRef.current?.deviceName === display.device_name ? "opacity-80 z-[100] border-primary" : ""
+                } ${dragRef.current?.deviceName === display.device_name ? "opacity-80 z-[100] border-accent" : ""
                 }`}
               data-device={display.device_name}
               onMouseDown={(event) => {
@@ -195,6 +214,11 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
               {!display.is_active && (
                 <div className="text-[8px] font-bold tracking-widest opacity-50 mt-1 uppercase text-error">
                   Disconnected
+                </div>
+              )}
+              {display.is_primary && (
+                <div className="absolute top-1 left-1.5 text-warning" title="Primary Monitor">
+                  <Star fill="currentColor" strokeWidth={1} width={12} height={12} />
                 </div>
               )}
             </div>
