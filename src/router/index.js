@@ -6,7 +6,7 @@ const Settings = lazy(() => import("../pages/Settings"));
 
 export const routes = [
   {
-    path: "/monitors",
+    path: "/",
     element: (
       <Suspense fallback={<div>Loading...</div>}>
         <Monitors />

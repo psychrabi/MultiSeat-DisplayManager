@@ -8,6 +8,7 @@ import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 import { useDisplayStore } from "../stores/useDisplayStore";
 import { useAppStore } from "../stores/useAppStore";
 import { useMonitorActions } from "../hooks/useMonitorActions";
+import { CheckSquare, RefreshCcw } from "lucide-react";
 
 export default function Monitors() {
   // ===== STORE STATE =====
@@ -50,25 +51,26 @@ export default function Monitors() {
 
   // ===== UI =====
   return (
-    <div className="page active">
-      <div className="topbar">
-        <span className="page-title">{PAGE_TITLES.monitors}</span>
+    <div className="">
+      <div className="flex items-center justify-between mb-6">
+        <span className="page-title">Display Settings</span>
 
-        <div className="topbar-actions">
-          <button className="btn" onClick={refreshDisplays}>
-            <RefreshIcon />
+        <div className="gap-4 flex">
+          <button className="btn btn-primary" onClick={refreshDisplays}>
+            <RefreshCcw />
             Refresh
           </button>
 
-          <button className="btn primary" onClick={applyCurrentUserProfile}>
-            <CheckSquareIcon />
+          <button className="btn btn-info" onClick={applyCurrentUserProfile}>
+            <CheckSquare />
             Apply My Profile
           </button>
         </div>
       </div>
 
-      <div className="scroll-area">
+      <div className="grid grid-cols-3 gap-8">
         {/* Layout */}
+        <div className="col-span-2">
         <div className="section-heading">Current layout</div>
 
         <LayoutPreview
@@ -90,9 +92,10 @@ export default function Monitors() {
             </button>
           </div>
         )}
+        </div>
 
    
-        <div className="section-heading">Monitors</div>
+        
 
         {loadingDisplays ? (
           <div className="loading-row">
@@ -103,21 +106,7 @@ export default function Monitors() {
           <div className="empty-copy">No monitors detected.</div>
         ) : (
           <>
-            <div className="monitor-grid">
-              {displays.map((display) => (
-                <MonitorCard
-                  key={display.device_name}
-                  display={display}
-                  selection={
-                    monitorSelections[display.device_name] ??
-                    buildSelectionForDisplay(display)
-                  }
-                  highlighted={selectedDisplay?.device_name === display.device_name}
-                  onSelectMonitor={selectMonitor}
-                  registerCardRef={registerCardRef}
-                />
-              ))}
-            </div>
+            
 
             {/* Settings */}
             <div className="section-heading" style={{ marginTop: 24 }}>

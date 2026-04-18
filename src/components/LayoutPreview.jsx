@@ -129,7 +129,7 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
   const startY = (size.height - totalHeight * scale) / 2;
 
   return (
-    <div className="layout-preview-container">
+    <div className="w-full h-full">
       <div className="layout-preview-inner" ref={innerRef}>
         {allDisplays.map((display) => {
           const previewPosition =
