@@ -23,7 +23,7 @@ const MonitorCard = (props) => {
 
   return (
     <div
-      className={`card bg-base-200 border cursor-pointer hover:border-primary/50 transition-all shadow-sm duration-200 ${highlighted ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary scale-[1.02]" : "border-base-300 hover:shadow-md"}`}
+      className={`card bg-base-200 border cursor-pointer hover:border-primary/50 transition-all shadow-sm duration-200 ${highlighted ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary " : "border-base-300 hover:shadow-md"} ${!display.is_active && !highlighted ? "opacity-50 grayscale hover:opacity-100 hover:grayscale-0" : ""}`}
       id={`card-${display.index}`}
       ref={(node) => registerCardRef(display.device_name, node)}
       onClick={() => onSelectMonitor(display.device_name)}

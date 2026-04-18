@@ -109,10 +109,13 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
     );
   }
 
-  const DEFAULT_MODE = { refresh_rate: 60 };
+  const DEFAULT_MODE = { refresh_rate: 60, width: 1920, height: 1080 };
 
   const allDisplays = displays.map((display, index) => {
     let mode = display.current_mode ?? DEFAULT_MODE;
+    if (!mode.width || !mode.height) {
+      mode = { ...mode, width: 1920, height: 1080 };
+    }
     let orientation = display.orientation;
 
     const selection = monitorSelections?.[display.device_name];
@@ -146,14 +149,53 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
         : { x: display.position_x, y: display.position_y };
     const dimensions = getDisplayDimensions(display, display.current_mode);
 
-    minX = Math.min(minX, previewPosition.x);
-    minY = Math.min(minY, previewPosition.y);
-    maxX = Math.max(maxX, previewPosition.x + dimensions.width);
-    maxY = Math.max(maxY, previewPosition.y + dimensions.height);
+    // We only compute bounds for ACTIVE displays first
+    if (display.is_active) {
+      minX = Math.min(minX, previewPosition.x);
+      minY = Math.min(minY, previewPosition.y);
+      maxX = Math.max(maxX, previewPosition.x + dimensions.width);
+      maxY = Math.max(maxY, previewPosition.y + dimensions.height);
+    }
   });
 
-  const totalWidth = Math.max(maxX - minX, 1);
-  const totalHeight = Math.max(maxY - minY, 1);
+  // If no active displays exist, reset bounds to 0
+  if (minX === Infinity) {
+    minX = 0; minY = 0; maxX = 0; maxY = 0;
+  }
+
+  // Second pass: arrange inactive displays natively BELOW the active grid
+  let inactiveOffsetX = minX;
+  const INACTIVE_SPACING = 200;
+  const inactiveY = maxY + INACTIVE_SPACING;
+  
+  let layoutMaxX = maxX;
+  let layoutMaxY = maxY;
+
+  const displayPositions = allDisplays.map((display) => {
+    let x = display.position_x;
+    let y = display.position_y;
+    const isDragging = dragPreview?.deviceName === display.device_name;
+
+    if (isDragging) {
+      x = dragPreview.x;
+      y = dragPreview.y;
+    } else if (!display.is_active) {
+      x = inactiveOffsetX;
+      y = inactiveY;
+      
+      const dims = getDisplayDimensions(display, display.current_mode);
+      inactiveOffsetX += dims.width + INACTIVE_SPACING;
+      
+      // Expand bounds to include inactive row
+      layoutMaxX = Math.max(layoutMaxX, x + dims.width);
+      layoutMaxY = Math.max(layoutMaxY, y + dims.height);
+    }
+
+    return { ...display, renderX: x, renderY: y };
+  });
+
+  const totalWidth = Math.max(layoutMaxX - minX, 1);
+  const totalHeight = Math.max(layoutMaxY - minY, 1);
   const padding = 70;
   const containerWidth = Math.max(size.width - padding, 1);
   const containerHeight = Math.max(size.height - padding, 1);
@@ -167,11 +209,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
       className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
     >
       <div className="relative w-full h-full">
-        {allDisplays.map((display) => {
-          const previewPosition =
-            dragPreview?.deviceName === display.device_name
-              ? dragPreview
-              : { x: display.position_x, y: display.position_y };
+        {displayPositions.map((display) => {
           const dimensions = getDisplayDimensions(display, display.current_mode);
           const shortMonitorName =
             (display.device_string || "Monitor").length > 15
@@ -215,8 +253,8 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
               style={{
                 width: `${dimensions.width * scale}px`,
                 height: `${dimensions.height * scale}px`,
-                left: `${startX + (previewPosition.x - minX) * scale}px`,
-                top: `${startY + (previewPosition.y - minY) * scale}px`,
+                left: `${startX + (display.renderX - minX) * scale}px`,
+                top: `${startY + (display.renderY - minY) * scale}px`,
               }}
               title={display.device_string || "Monitor"}
             >
