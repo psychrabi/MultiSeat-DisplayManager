@@ -8,7 +8,7 @@ import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 import { useDisplayStore } from "../stores/useDisplayStore";
 import { useAppStore } from "../stores/useAppStore";
 import { useMonitorActions } from "../hooks/useMonitorActions";
-import { CheckSquare, RefreshCcw } from "lucide-react";
+import { Check, CheckSquare, RefreshCcw, X } from "lucide-react";
 
 export default function Monitors() {
   // ===== STORE STATE =====
@@ -37,8 +37,8 @@ export default function Monitors() {
     registerCardRef,
     hasPendingLayoutChanges,
   } = useMonitorActions();
- // ===== DERIVED =====
-   // ===== DERIVED =====
+  // ===== DERIVED =====
+  // ===== DERIVED =====
   const selectedDisplay =
     displays.find((d) => d.device_name === highlightedMonitor) ??
     displays[0] ??
@@ -46,7 +46,7 @@ export default function Monitors() {
 
   const selectedSelection = selectedDisplay
     ? monitorSelections[selectedDisplay.device_name] ??
-      buildSelectionForDisplay(selectedDisplay)
+    buildSelectionForDisplay(selectedDisplay)
     : null;
 
   // ===== UI =====
@@ -71,31 +71,31 @@ export default function Monitors() {
       <div className="grid grid-cols-3 gap-8">
         {/* Layout */}
         <div className="col-span-2">
-        <div className="section-heading">Current layout</div>
+          <div className="text-xs font-bold tracking-widest text-base-content/50 uppercase mb-4 pb-2 border-b border-base-300">Current layout</div>
 
-        <LayoutPreview
-          displays={displays}
-          onDraftPosition={draftPosition}
-          onSelectMonitor={previewSelectMonitor}
-        />
+          <LayoutPreview
+            displays={displays}
+            onDraftPosition={draftPosition}
+            onSelectMonitor={previewSelectMonitor}
+          />
 
-        {hasPendingLayoutChanges && (
-          <div style={{ marginTop: 16, marginBottom: 24, textAlign: "right" }}>
-            <button className="btn" onClick={cancelLayoutChanges}>
-              <CloseIcon />
-              Cancel
-            </button>
+          {hasPendingLayoutChanges && (
+            <div className="flex items-center mt-6 gap-2">
+              <button className="btn" onClick={cancelLayoutChanges}>
+                <X />
+                Cancel
+              </button>
 
-            <button className="btn primary" onClick={applyLayoutChanges}>
-              <CheckIcon />
-              Apply Layout Changes
-            </button>
-          </div>
-        )}
+              <button className="btn primary" onClick={applyLayoutChanges}>
+                <Check />
+                Apply Layout Changes
+              </button>
+            </div>
+          )}
         </div>
 
-   
-        
+
+
 
         {loadingDisplays ? (
           <div className="loading-row">
@@ -106,24 +106,25 @@ export default function Monitors() {
           <div className="empty-copy">No monitors detected.</div>
         ) : (
           <>
-            
+
 
             {/* Settings */}
-            <div className="section-heading" style={{ marginTop: 24 }}>
+            <div className="text-xs font-bold tracking-widest text-base-content/50 uppercase mb-4 mt-6 pb-2 border-b border-base-300">
               Monitor settings
-            </div>
 
-            <MonitorSettingsPanel
-              display={selectedDisplay}
-              selection={selectedSelection}
-              autoSave={settings.autoSave}
-              busy={busyMonitor === selectedDisplay?.device_name}
-              onResolutionChange={resolutionChange}
-              onSelectionChange={selectionChange}
-              onApply={applyMonitorSettings}
-              onToggleMonitor={toggleMonitor}
-              onMakePrimary={makePrimary}
-            />
+
+              <MonitorSettingsPanel
+                display={selectedDisplay}
+                selection={selectedSelection}
+                autoSave={settings.autoSave}
+                busy={busyMonitor === selectedDisplay?.device_name}
+                onResolutionChange={resolutionChange}
+                onSelectionChange={selectionChange}
+                onApply={applyMonitorSettings}
+                onToggleMonitor={toggleMonitor}
+                onMakePrimary={makePrimary}
+              />
+            </div>
           </>
         )}
       </div>

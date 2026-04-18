@@ -89,11 +89,13 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
 
   if (displays.length === 0) {
     return (
-      <div className="layout-preview-container">
-        <div className="empty-copy">No monitors detected.</div>
+      <div className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner">
+        <div className="text-base-content/50 text-sm">No monitors detected.</div>
       </div>
     );
   }
+
+  const DEFAULT_MODE = { refresh_rate: 60 };
 
   const allDisplays = displays.map((display, index) => ({
     ...display,
@@ -129,8 +131,8 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
   const startY = (size.height - totalHeight * scale) / 2;
 
   return (
-    <div className="w-full h-full">
-      <div className="layout-preview-inner" ref={innerRef}>
+    <div className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner">
+      <div className="relative w-full h-full" ref={innerRef}>
         {allDisplays.map((display) => {
           const previewPosition =
             dragPreview?.deviceName === display.device_name
@@ -145,14 +147,10 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
           return (
             <div
               key={display.device_name}
-              className={[
-                "preview-monitor",
-                display.is_primary ? "primary" : "",
-                !display.is_active ? "inactive" : "",
-                dragRef.current?.deviceName === display.device_name ? "dragging" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              className={`absolute bg-base-100 border-2 border-base-content/20 rounded-md flex flex-col items-center justify-center text-base-content/60 transition-[border-color,transform] duration-200 shadow-md select-none z-10 cursor-grab active:cursor-grabbing hover:border-primary hover:scale-[1.02] hover:z-20 ${display.is_primary ? "border-primary bg-primary/5 after:content-['PRIMARY'] after:absolute after:-top-2.5 after:left-1/2 after:-translate-x-1/2 after:bg-primary after:text-primary-content after:text-[8px] after:font-extrabold after:px-1.5 after:py-px after:rounded-sm after:tracking-wider z-10" : ""
+                } ${!display.is_active ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20 hover:scale-100 !active:cursor-default" : ""
+                } ${dragRef.current?.deviceName === display.device_name ? "opacity-80 z-[100] border-primary" : ""
+                }`}
               data-device={display.device_name}
               onMouseDown={(event) => {
                 if (!display.is_active || scale <= 0) {
@@ -187,29 +185,18 @@ const LayoutPreview = ({ displays, onDraftPosition, onSelectMonitor }) => {
               }}
               title={display.device_string || "Monitor"}
             >
-              <div className="num">{display.previewIndex + 1}</div>
-              <div className="res">
+              <div className="text-2xl font-bold font-mono mb-1 text-base-content">{display.previewIndex + 1}</div>
+              <div className="text-[10px] font-mono opacity-70">
                 {dimensions.width}x{dimensions.height}
               </div>
-              <div
-                style={{
-                  fontSize: "7px",
-                  opacity: 0.6,
-                  marginTop: "2px",
-                  textAlign: "center",
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <div className="text-[9px] opacity-60 mt-1 text-center max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-1">
                 {shortMonitorName}
               </div>
-              {!display.is_active ? (
-                <div style={{ fontSize: "6px", opacity: 0.5, marginTop: "2px" }}>
-                  DISCONNECTED
+              {!display.is_active && (
+                <div className="text-[8px] font-bold tracking-widest opacity-50 mt-1 uppercase text-error">
+                  Disconnected
                 </div>
-              ) : null}
+              )}
             </div>
           );
         })}

@@ -1,12 +1,12 @@
 
 export const AVATAR_COLORS = [
-  "#00d4ff",
-  "#00e676",
-  "#ffab40",
-  "#ff5252",
-  "#ea80fc",
-  "#69f0ae",
-  "#40c4ff",
+  "bg-accent",
+  "bg-success",
+  "bg-warning",
+  "bg-error",
+  "bg-secondary",
+  "bg-primary",
+  "bg-info",
 ];
 
 export const PAGE_TITLES = {
@@ -25,7 +25,7 @@ export const ORIENTATION_OPTIONS = [
   { value: "portraitflipped", label: "Portrait (flipped)" },
 ];
 
-export const SCALE_OPTIONS = ["100", "125", "150", "175","200"];
+export const SCALE_OPTIONS = ["100", "125", "150", "175", "200"];
 
 
 
@@ -100,8 +100,8 @@ export function buildSelectionForDisplay(display) {
     resolution,
     refreshRate: String(
       display.current_mode?.refresh_rate ??
-        refreshRates[0] ??
-        DEFAULT_MODE.refresh_rate,
+      refreshRates[0] ??
+      DEFAULT_MODE.refresh_rate,
     ),
     orientation: display.orientation ?? "landscape",
     scale: String(display.scale_factor ?? 100),

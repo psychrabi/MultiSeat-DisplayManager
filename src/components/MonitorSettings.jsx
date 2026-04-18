@@ -1,6 +1,5 @@
+import { Check, Power, PowerCircle, Star } from "lucide-react";
 import { formatPosition, getDisplayDimensions, getRefreshRates, getResolutionOptions, ORIENTATION_OPTIONS, SCALE_OPTIONS } from "../js/utils";
-import { CheckIcon, PowerIcon, StarIcon } from "./Icons";
-
 
 const MonitorSettingsPanel = (props) => {
   const {
@@ -17,8 +16,11 @@ const MonitorSettingsPanel = (props) => {
 
   if (!display) {
     return (
-      <div className="monitor-settings-panel">
-        <div className="empty-copy">Select a monitor to view its settings.</div>
+      <div className="card bg-base-200 border border-base-300 shadow-xl h-full flex flex-col items-center justify-center p-10">
+        <div className="opacity-40 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></svg>
+        </div>
+        <div className="text-base-content/50 text-sm">Select a monitor to view its settings.</div>
       </div>
     );
   }
@@ -34,348 +36,150 @@ const MonitorSettingsPanel = (props) => {
   const refreshRateOptions = getRefreshRates(display, selection.resolution);
   const refreshValue = refreshRateOptions.includes(Number(selection.refreshRate))
     ? selection.refreshRate
-    : String(refreshRateOptions[0] ?? currentMode?.refresh_rate ?? DEFAULT_MODE.refresh_rate);
+    : String(refreshRateOptions[0] ?? currentMode?.refresh_rate ?? 60);
 
-  return (<>
-   <div className="monitor-settings-panel">
-      <div className="mc-header">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-            <span className="mc-index">MON:{display.index + 1}</span>
-            {display.is_primary ? <span className="badge primary-badge">PRIMARY</span> : null}
-            {display.is_active ? (
-              <span className="badge active-badge">ACTIVE</span>
-            ) : (
-              <span
-                className="badge"
-                style={{ background: "rgba(255,255,255,0.05)", color: "var(--text3)" }}
-              >
-                INACTIVE
-              </span>
-            )}
-          </div>
-          <div
-            className="mc-name"
-            style={{ fontSize: "15px", fontWeight: 600, color: "var(--text)", marginBottom: "2px" }}
-          >
-            {display.device_string || "Unknown Monitor"}
-          </div>
-          <div className="mc-desc">
-            {shortName}
-            {adapterName ? ` • ${adapterName}` : ""}
+  return (
+    <div className="card bg-base-200 border border-base-300 shadow-xl w-full">
+      <div className="card-body p-6">
+        <div className="flex gap-2 items-start justify-between border-b border-base-300 pb-4 mb-5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="badge badge-neutral font-mono text-[10px]">MON:{display.index + 1}</span>
+              {display.is_primary && <span className="badge badge-primary font-mono text-[10px]">PRIMARY</span>}
+              {display.is_active ? (
+                <span className="badge badge-success badge-outline font-mono text-[10px]">ACTIVE</span>
+              ) : (
+                <span className="badge badge-ghost font-mono text-[10px]">INACTIVE</span>
+              )}
+            </div>
+            <div className="text-lg font-semibold text-base-content mb-1">
+              {display.device_string || "Unknown Monitor"}
+            </div>
+            <div className="text-sm text-base-content/60">
+              {shortName}
+              {adapterName ? ` • ${adapterName}` : ""}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mc-body">
-        <div className="current-mode">
+        <div className="bg-base-300 rounded-lg p-4 mb-6 flex items-center justify-between font-mono text-sm border border-base-content/5">
           <div>
-            <div className="current-mode-label">Current</div>
-            <div className="current-mode-val">{currentLabel}</div>
+            <div className="text-[11px] font-sans text-base-content/50 uppercase tracking-wider mb-1">Current</div>
+            <div className="text-primary font-semibold">{currentLabel}</div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="current-mode-label">Position</div>
-            <div
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: "11px",
-                color: "var(--text2)",
-                marginTop: "2px",
-              }}
-            >
+          <div className="text-right">
+            <div className="text-[11px] font-sans text-base-content/50 uppercase tracking-wider mb-1">Position</div>
+            <div className="text-base-content/70">
               {formatPosition(display.position_x, display.position_y)}
             </div>
           </div>
         </div>
 
-        <div className="monitor-settings-grid">
-          <div className="form-group">
-            <label className="form-label">Resolution</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={selection.resolution}
-                onChange={(event) => onResolutionChange(display, event.target.value)}
-              >
-                {resolutionOptions.map((resolution) => (
-                  <option key={resolution} value={resolution}>
-                    {resolution}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          <div className="form-control w-full">
+            <label className="label py-1"><span className="label-text text-xs font-semibold text-base-content/70">Resolution</span></label>
+            <select
+              className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={!display.is_active}
+              value={selection.resolution}
+              onChange={(event) => onResolutionChange(display, event.target.value)}
+            >
+              {resolutionOptions.map((resolution) => (
+                <option key={resolution} value={resolution}>{resolution}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Refresh Rate</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={refreshValue}
-                onChange={(event) =>
-                  onSelectionChange(display.device_name, { refreshRate: event.target.value })
-                }
-              >
-                {refreshRateOptions.map((rate) => (
-                  <option key={rate} value={rate}>
-                    {rate}Hz
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-control w-full">
+            <label className="label py-1"><span className="label-text text-xs font-semibold text-base-content/70">Refresh Rate</span></label>
+            <select
+              className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={!display.is_active}
+              value={refreshValue}
+              onChange={(event) => onSelectionChange(display.device_name, { refreshRate: event.target.value })}
+            >
+              {refreshRateOptions.map((rate) => (
+                <option key={rate} value={rate}>{rate}Hz</option>
+              ))}
+            </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Orientation</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={selection.orientation}
-                onChange={(event) =>
-                  onSelectionChange(display.device_name, { orientation: event.target.value })
-                }
-              >
-                {ORIENTATION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-control w-full">
+            <label className="label py-1"><span className="label-text text-xs font-semibold text-base-content/70">Orientation</span></label>
+            <select
+              className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={!display.is_active}
+              value={selection.orientation}
+              onChange={(event) => onSelectionChange(display.device_name, { orientation: event.target.value })}
+            >
+              {ORIENTATION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Scale</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={selection.scale}
-                onChange={(event) =>
-                  onSelectionChange(display.device_name, { scale: event.target.value })
-                }
-              >
-                {SCALE_OPTIONS.map((scale) => (
-                  <option key={scale} value={scale}>
-                    {scale}%
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-control w-full">
+            <label className="label py-1"><span className="label-text text-xs font-semibold text-base-content/70">Scale</span></label>
+            <select
+              className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
+              disabled={!display.is_active}
+              value={selection.scale}
+              onChange={(event) => onSelectionChange(display.device_name, { scale: event.target.value })}
+            >
+              {SCALE_OPTIONS.map((scale) => (
+                <option key={scale} value={scale}>{scale}%</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {display.is_active ? (
-          <div className="monitor-settings-actions">
-            <button className="btn primary" type="button" disabled={busy} onClick={() => onApply(display)}>
-              <CheckIcon />
-              {autoSave ? "Apply" : "Apply & Save"}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              style={{ borderColor: "var(--error)", color: "var(--error)" }}
-              onClick={() => onToggleMonitor(display)}
-            >
-              <PowerIcon />
-              Disconnect
-            </button>
-            {!display.is_primary ? (
+        <div className="flex flex-wrap gap-3 mt-8 pt-6 border-t border-base-300">
+          {display.is_active ? (
+            <>
               <button
-                className="btn"
+                className="btn btn-primary flex-1 shadow-md hover:shadow-lg shadow-primary/20"
                 type="button"
-                style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
-                onClick={() => onMakePrimary(display)}
+                disabled={busy}
+                onClick={() => onApply(display)}
               >
-                <StarIcon />
-                Make Primary
+                {busy ? <span className="loading loading-spinner loading-sm"></span> : <Check />}
+                {autoSave ? "Apply" : "Apply & Save"}
               </button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="monitor-settings-actions">
+
+              <button
+                className="btn btn-error btn-outline hover:bg-error/10"
+                type="button"
+                onClick={() => onToggleMonitor(display)}
+              >
+                <PowerCircle />
+                Disconnect
+              </button>
+
+              {!display.is_primary && (
+                <button
+                  className="btn btn-warning btn-outline hover:bg-warning/10"
+                  type="button"
+                  onClick={() => onMakePrimary(display)}
+                >
+                  <Star />
+                  Make Primary
+                </button>
+              )}
+            </>
+          ) : (
             <button
-              className="btn"
+              className="btn btn-success btn-outline w-full"
               type="button"
-              style={{ borderColor: "var(--success)", color: "var(--success)" }}
               onClick={() => onToggleMonitor(display)}
             >
-              <PowerIcon />
+              <Power />
               Reconnect
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
-<div class="card bg-base-100 card-xs shadow-sm">
-      <div className="card-header">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-            <span className="mc-index">MON:{display.index + 1}</span>
-            {display.is_primary ? <span className="badge primary-badge">PRIMARY</span> : null}
-            {display.is_active ? (
-              <span className="badge active-badge">ACTIVE</span>
-            ) : (
-              <span
-                className="badge"
-                style={{ background: "rgba(255,255,255,0.05)", color: "var(--text3)" }}
-              >
-                INACTIVE
-              </span>
-            )}
-          </div>
-          <div
-            className="mc-name"
-            style={{ fontSize: "15px", fontWeight: 600, color: "var(--text)", marginBottom: "2px" }}
-          >
-            {display.device_string || "Unknown Monitor"}
-          </div>
-          <div className="mc-desc">
-            {shortName}
-            {adapterName ? ` • ${adapterName}` : ""}
-          </div>
-        </div>
-      </div>
-
-      <div className="mc-body">
-        <div className="current-mode">
-          <div>
-            <div className="current-mode-label">Current</div>
-            <div className="current-mode-val">{currentLabel}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="current-mode-label">Position</div>
-            <div
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: "11px",
-                color: "var(--text2)",
-                marginTop: "2px",
-              }}
-            >
-              {formatPosition(display.position_x, display.position_y)}
-            </div>
-          </div>
-        </div>
-
-        <div className="monitor-settings-grid">
-          <div className="form-group">
-            <label className="form-label">Resolution</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={selection.resolution}
-                onChange={(event) => onResolutionChange(display, event.target.value)}
-              >
-                {resolutionOptions.map((resolution) => (
-                  <option key={resolution} value={resolution}>
-                    {resolution}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Refresh Rate</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={refreshValue}
-                onChange={(event) =>
-                  onSelectionChange(display.device_name, { refreshRate: event.target.value })
-                }
-              >
-                {refreshRateOptions.map((rate) => (
-                  <option key={rate} value={rate}>
-                    {rate}Hz
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Orientation</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={selection.orientation}
-                onChange={(event) =>
-                  onSelectionChange(display.device_name, { orientation: event.target.value })
-                }
-              >
-                {ORIENTATION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Scale</label>
-            <div className="select-wrap">
-              <select
-                disabled={!display.is_active}
-                value={selection.scale}
-                onChange={(event) =>
-                  onSelectionChange(display.device_name, { scale: event.target.value })
-                }
-              >
-                {SCALE_OPTIONS.map((scale) => (
-                  <option key={scale} value={scale}>
-                    {scale}%
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {display.is_active ? (
-          <div className="monitor-settings-actions">
-            <button className="btn primary" type="button" disabled={busy} onClick={() => onApply(display)}>
-              <CheckIcon />
-              {autoSave ? "Apply" : "Apply & Save"}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              style={{ borderColor: "var(--error)", color: "var(--error)" }}
-              onClick={() => onToggleMonitor(display)}
-            >
-              <PowerIcon />
-              Disconnect
-            </button>
-            {!display.is_primary ? (
-              <button
-                className="btn"
-                type="button"
-                style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
-                onClick={() => onMakePrimary(display)}
-              >
-                <StarIcon />
-                Make Primary
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="monitor-settings-actions">
-            <button
-              className="btn"
-              type="button"
-              style={{ borderColor: "var(--success)", color: "var(--success)" }}
-              onClick={() => onToggleMonitor(display)}
-            >
-              <PowerIcon />
-              Reconnect
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-    </>
   );
-}
+};
+
 export default MonitorSettingsPanel;

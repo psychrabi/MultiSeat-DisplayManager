@@ -1,6 +1,5 @@
-import { CheckIcon, PlusIcon } from "../components/Icons.jsx";
+import { PlusIcon } from "../components/Icons.jsx";
 import { EmptyProfileState } from "../components/ui.jsx";
-
 import {
   AVATAR_COLORS,
   getAssignmentMonitorName,
@@ -11,6 +10,7 @@ import {
 
 import { useProfileStore } from "../stores/useProfileStore";
 import { useAppStore } from "../stores/useAppStore";
+import { Plus } from "lucide-react";
 
 const ProfilesPage = () => {
   // ===== STORE =====
@@ -28,90 +28,88 @@ const ProfilesPage = () => {
 
   // ===== UI =====
   return (
-    <div className="page active">
-      <div className="topbar">
-        <span className="page-title">{PAGE_TITLES.profiles}</span>
+    <div className="flex flex-col h-full active">
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-base-300">
+        <span className="text-xl font-semibold">{PAGE_TITLES.profiles}</span>
 
-        <div className="topbar-actions">
-          <button className="btn primary">
-            <PlusIcon />
+        <div className="flex gap-2">
+          <button className="btn btn-primary btn-sm">
+            <Plus />
             New Profile
           </button>
         </div>
       </div>
 
-      <div className="scroll-area">
-        <div className="profiles-layout">
+      <div className="flex-1 overflow-auto py-2">
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 h-full items-start">
           {/* USERS LIST */}
-          <div className="profiles-list-panel">
-            <div className="panel-header">
-              <span className="panel-title">Users</span>
+          <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
+            <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">Users</span>
             </div>
 
-            <div className="profile-list">
+            <div className="flex-1 overflow-y-auto">
               {users.length === 0 ? (
-                <div className="empty-copy">
+                <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-6 h-full">
                   No profiles yet.
                 </div>
               ) : (
-                users.map((username, index) => {
-                  const count = Object.keys(
-                    profiles.users[username]?.assignments ?? {}
-                  ).length;
+                <ul className="menu bg-base-200 w-full p-0">
+                  {users.map((username, index) => {
+                    const count = Object.keys(
+                      profiles.users[username]?.assignments ?? {}
+                    ).length;
 
-                  return (
-                    <div
-                      key={username}
-                      className={`profile-item${
-                        selectedProfileUser === username ? " active" : ""
-                      }`}
-                      onClick={() => setSelectedProfileUser(username)}
-                    >
-                      <div
-                        className="profile-avatar"
-                        style={{
-                          background:
-                            AVATAR_COLORS[index % AVATAR_COLORS.length],
-                        }}
-                      >
-                        {getUserInitial(username)}
-                      </div>
+                    return (
+                      <li key={username}>
+                        <a
+                          className={`flex items-center gap-3 p-3 rounded-none border-b border-base-300/50 hover:bg-base-300/50 transition-colors ${selectedProfileUser === username ? "bg-primary/10 hover:bg-primary/20" : ""
+                            }`}
+                          onClick={() => setSelectedProfileUser(username)}
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-full flex-shrink-0 grid place-items-center text-xs font-bold text-black ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
+                          >
+                            {getUserInitial(username)}
+                          </div>
 
-                      <div>
-                        <div className="profile-item-name">
-                          {getUserShortName(username)}
-                        </div>
+                          <div className="flex flex-col">
+                            <div className={`text-sm font-medium ${selectedProfileUser === username ? "text-primary" : "text-base-content"}`}>
+                              {getUserShortName(username)}
+                            </div>
 
-                        <div className="profile-item-count">
-                          {count} monitor{count === 1 ? "" : "s"} assigned
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                            <div className="text-[10px] font-mono text-base-content/50">
+                              {count} monitor{count === 1 ? "" : "s"} assigned
+                            </div>
+                          </div>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           </div>
 
           {/* PROFILE DETAIL */}
-          <div className="profile-detail">
+          <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
             {!selectedProfileUser || !selectedProfile ? (
               <EmptyProfileState />
             ) : (
               <>
-                <div className="panel-header">
-                  <span className="panel-title">
+                <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">
                     Profile: {getUserShortName(selectedProfileUser)}
                   </span>
 
                   {selectedProfileUser === currentUser && (
-                    <span className="badge active-badge">YOU</span>
+                    <span className="badge badge-success badge-outline badge-sm font-mono tracking-widest">YOU</span>
                   )}
                 </div>
 
-                <div className="profile-detail-content">
+                <div className="flex-1 overflow-y-auto">
                   {Object.entries(selectedProfile.assignments ?? {}).length === 0 ? (
-                    <div className="empty-copy">
+                    <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-6 h-full">
                       No monitor assignments yet.
                     </div>
                   ) : (
@@ -123,13 +121,13 @@ const ProfilesPage = () => {
                           assignment.mode?.height ?? assignment.height ?? 0;
 
                         return (
-                          <div key={key} className="assignment-row">
+                          <div key={key} className="p-4 px-5 border-b border-base-300 grid grid-cols-[1fr_auto] gap-4 items-center">
                             <div>
-                              <div className="assignment-device">
+                              <div className="text-xs font-mono text-base-content/70 mb-1">
                                 {getAssignmentMonitorName(key, assignment)}
                               </div>
 
-                              <div className="assignment-mode">
+                              <div className="text-sm font-semibold text-primary">
                                 {width}x{height}
                               </div>
                             </div>

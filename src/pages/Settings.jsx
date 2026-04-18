@@ -53,8 +53,8 @@ const SettingsPage = () => {
           </div>
           <div className="card-footer flex items-center justify-between p-6">
             <div>
-              <div className="settings-row-label">Run at Windows startup</div>
-              <div className="settings-row-desc">Adds entry to HKCU\...\Run registry key</div>
+              <div className="text-sm font-medium">Run at Windows startup</div>
+              <div className="text-xs text-base-content/60 mt-0.5">Adds entry to HKCU\...\Run registry key</div>
             </div>
 
 
@@ -75,8 +75,8 @@ const SettingsPage = () => {
           </div>
           <div className="card-footer flex items-center justify-between p-6">
             <div>
-              <div className="settings-row-label">Persist mode by default</div>
-              <div className="settings-row-desc">
+              <div className="text-sm font-medium">Persist mode by default</div>
+              <div className="text-xs text-base-content/60 mt-0.5">
                 Uses CDS_UPDATEREGISTRY | CDS_GLOBAL flags
               </div>
             </div>
@@ -93,12 +93,12 @@ const SettingsPage = () => {
             <p>Automatically save the applied settings to your user profile.</p>
           </div>
           <div className="card-footer flex items-center justify-between p-6">
-              <div>
-                <div className="settings-row-label">Auto-save profile after applying</div>
-              </div>
-                <input type="checkbox" className="toggle toggle-primary" onChange={toggleAutoSave} defaultChecked={settings.autoSave} />
-              
-           
+            <div>
+              <div className="text-sm font-medium">Auto-save profile after applying</div>
+            </div>
+            <input type="checkbox" className="toggle toggle-primary" onChange={toggleAutoSave} defaultChecked={settings.autoSave} />
+
+
           </div>
         </div>
       </div>
