@@ -215,7 +215,7 @@ const hasPendingLayoutChanges =
           ...existing,
           [key]: {
             display_id: display.display_id,
-            mode: { width, height, refresh_rate: refreshRate },
+            mode: { width, height, refresh_rate: refreshRate, bits_per_pixel: display.current_mode?.bits_per_pixel ?? 32 },
             position_x: display.position_x,
             position_y: display.position_y,
             is_primary: display.is_primary,

@@ -88,9 +88,22 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
     };
   }, [displays, onDraftPosition]);
 
+  // Wait until we have container dimensions before trying to math out the layout scaling
+  if (size.width === 0 || size.height === 0) {
+    return (
+      <div
+        ref={innerRef}
+        className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+      />
+    );
+  }
+
   if (displays.length === 0) {
     return (
-      <div className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner">
+      <div
+        ref={innerRef}
+        className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+      >
         <div className="text-base-content/50 text-sm">No monitors detected.</div>
       </div>
     );
@@ -149,8 +162,11 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
   const startY = (size.height - totalHeight * scale) / 2;
 
   return (
-    <div className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner">
-      <div className="relative w-full h-full" ref={innerRef}>
+    <div
+      ref={innerRef}
+      className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+    >
+      <div className="relative w-full h-full">
         {allDisplays.map((display) => {
           const previewPosition =
             dragPreview?.deviceName === display.device_name
@@ -204,7 +220,9 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
               }}
               title={display.device_string || "Monitor"}
             >
-              <div className="text-2xl font-bold font-mono mb-1 text-base-content">{display.previewIndex + 1}</div>
+              <div className="text-2xl font-bold font-mono mb-1 text-base-content">
+                {display.device_name.match(/DISPLAY(\d+)/i)?.[1] || display.previewIndex + 1}
+              </div>
               <div className="text-[10px] font-mono opacity-70">
                 {dimensions.width}x{dimensions.height}
               </div>

@@ -32,7 +32,7 @@ const MonitorCard = (props) => {
         <div className="flex gap-2 items-start justify-between border-b border-base-300 pb-3 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <span className="badge badge-neutral font-mono text-[9px] px-1.5 py-0.5">MON:{display.index + 1}</span>
+              <span className="badge badge-neutral font-mono text-[9px] px-1.5 py-0.5">MON:{display.device_name.match(/DISPLAY(\d+)/i)?.[1] || display.index + 1}</span>
               {display.is_primary && <span className="badge badge-primary font-mono text-[9px] px-1.5 py-0.5">PRIMARY</span>}
               {display.is_active ? (
                 <span className="badge badge-success badge-outline font-mono text-[9px] px-1.5 py-0.5">ACTIVE</span>

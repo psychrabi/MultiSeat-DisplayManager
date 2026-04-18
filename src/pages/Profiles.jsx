@@ -11,14 +11,41 @@ import {
 import { useProfileStore } from "../stores/useProfileStore";
 import { useAppStore } from "../stores/useAppStore";
 import { Plus } from "lucide-react";
+import { invoke } from "../api";
 
 const ProfilesPage = () => {
   // ===== STORE =====
   const profiles = useProfileStore((s) => s.profiles);
   const selectedProfileUser = useProfileStore((s) => s.selectedProfileUser);
   const setSelectedProfileUser = useProfileStore((s) => s.setSelectedUser);
+  const newProfileOpen = useProfileStore((s) => s.newProfileOpen);
+  const newProfileUsername = useProfileStore((s) => s.newProfileUsername);
+  const setNewProfileOpen = useProfileStore((s) => s.setNewProfileOpen);
+  const setNewProfileUsername = useProfileStore((s) => s.setNewProfileUsername);
+  const refreshProfiles = useProfileStore((s) => s.refreshProfiles);
 
   const currentUser = useAppStore((s) => s.currentUser);
+  const pushToast = useAppStore((s) => s.pushToast);
+
+  // ===== ACTIONS =====
+  const handleCreateProfile = async (e) => {
+    e?.preventDefault();
+    if (!newProfileUsername.trim()) return;
+
+    try {
+      await invoke("save_user_profile", {
+        username: newProfileUsername,
+        assignments: {}
+      });
+      await refreshProfiles();
+      setNewProfileOpen(false);
+      setSelectedProfileUser(newProfileUsername);
+      setNewProfileUsername("");
+      pushToast("Profile created successfully", "success");
+    } catch (err) {
+      pushToast(`Error creating profile: ${err}`, "error");
+    }
+  };
 
   // ===== DERIVED =====
   const users = Object.keys(profiles.users ?? {});
@@ -33,7 +60,7 @@ const ProfilesPage = () => {
         <span className="text-xl font-semibold">{PAGE_TITLES.profiles}</span>
 
         <div className="flex gap-2">
-          <button className="btn btn-primary btn-sm">
+          <button className="btn btn-primary btn-sm" onClick={() => setNewProfileOpen(true)}>
             <Plus />
             New Profile
           </button>
@@ -142,6 +169,31 @@ const ProfilesPage = () => {
           </div>
         </div>
       </div>
+
+      {/* NEW PROFILE MODAL */}
+      <dialog className={`modal ${newProfileOpen ? "modal-open" : ""}`}>
+        <div className="modal-box bg-base-200 border border-base-300">
+          <h3 className="font-bold text-lg mb-4">Create New Profile</h3>
+          <div className="form-control w-full">
+            <label className="label">
+              <span className="label-text">Profile Name</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. John Doe, Gaming, Work..."
+              className="input input-bordered w-full bg-base-100"
+              value={newProfileUsername}
+              onChange={(e) => setNewProfileUsername(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateProfile(e)}
+            />
+          </div>
+          <div className="modal-action">
+            <button className="btn" onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleCreateProfile} disabled={!newProfileUsername.trim()}>Create</button>
+          </div>
+        </div>
+        <div className="modal-backdrop bg-base-300/60" onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}></div>
+      </dialog>
     </div>
   );
 };

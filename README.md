@@ -1,4 +1,4 @@
-# ASTER Display Manager
+# MultiSeat Display Manager
 
 A native Windows desktop app (built with Tauri + Rust + React) to manage display resolution and refresh rates per user for ASTER multi-seat setups.
 

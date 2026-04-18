@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ASTER Display Manager",
+  "productName": "MultiSeat Display Manager",
   "version": "1.0.0",
-  "identifier": "com.aster.display-manager",
+  "identifier": "com.multiseat.display-manager",
   "build": {
     "beforeDevCommand": "bun run frontend:dev",
     "beforeBuildCommand": "bun run frontend:build",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "ASTER Display Manager",
+        "title": "MultiSeat Display Manager",
         "width": 1100,
         "height": 750,
         "minWidth": 800,
