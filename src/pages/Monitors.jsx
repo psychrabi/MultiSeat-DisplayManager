@@ -1,6 +1,4 @@
-import { CheckIcon, CheckSquareIcon, CloseIcon, RefreshIcon } from "../components/Icons";
 import LayoutPreview from "../components/LayoutPreview";
-import MonitorCard from "../components/MonitorCard";
 import MonitorSettingsPanel from "../components/MonitorSettings";
 
 import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
@@ -26,7 +24,6 @@ export default function Monitors() {
     applyCurrentUserProfile,
     draftPosition,
     previewSelectMonitor,
-    selectMonitor,
     cancelLayoutChanges,
     applyLayoutChanges,
     resolutionChange,
@@ -34,7 +31,6 @@ export default function Monitors() {
     applyMonitorSettings,
     toggleMonitor,
     makePrimary,
-    registerCardRef,
     hasPendingLayoutChanges,
   } = useMonitorActions();
   // ===== DERIVED =====
@@ -51,27 +47,45 @@ export default function Monitors() {
 
   // ===== UI =====
   return (
-    <div className="">
-      <div className="flex items-center justify-between mb-6">
-        <span className="page-title">Display Settings</span>
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
+              Control Center
+            </p>
+            <h2 className="text-2xl font-semibold text-base-content">{PAGE_TITLES.monitors}</h2>
+            <p className="text-sm text-base-content/60">
+              Arrange the desktop layout, inspect active displays, and apply per-monitor changes.
+            </p>
+          </div>
 
-        <div className="gap-4 flex">
-          <button className="btn btn-primary" onClick={refreshDisplays}>
-            <RefreshCcw />
-            Refresh
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button className="btn btn-primary" onClick={refreshDisplays}>
+              <RefreshCcw className="size-4" />
+              Refresh
+            </button>
 
-          <button className="btn btn-info" onClick={applyCurrentUserProfile}>
-            <CheckSquare />
-            Apply My Profile
-          </button>
+            <button className="btn btn-secondary" onClick={applyCurrentUserProfile}>
+              <CheckSquare className="size-4" />
+              Apply My Profile
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-8">
-        {/* Layout */}
-        <div className="col-span-2">
-          <div className="text-xs font-bold tracking-widest text-base-content/50 uppercase mb-4 pb-2 border-b border-base-300">Current layout</div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)]">
+        <section className="space-y-4">
+          <div className="flex items-center justify-between border-b border-base-300 pb-2">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest text-base-content/50">
+                Current layout
+              </div>
+              <p className="mt-1 text-sm text-base-content/60">
+                Drag active monitors to preview new positions before applying them.
+              </p>
+            </div>
+          </div>
 
           <LayoutPreview
             displays={displays}
@@ -82,40 +96,51 @@ export default function Monitors() {
           />
 
           {hasPendingLayoutChanges && (
-            <div className="flex items-center mt-6 gap-2">
-              <button className="btn" onClick={cancelLayoutChanges}>
-                <X />
+            <div className="flex flex-wrap items-center gap-2">
+              <button className="btn btn-ghost" onClick={cancelLayoutChanges}>
+                <X className="size-4" />
                 Cancel
               </button>
 
-              <button className="btn primary" onClick={applyLayoutChanges}>
-                <Check />
+              <button className="btn btn-primary" onClick={applyLayoutChanges}>
+                <Check className="size-4" />
                 Apply Layout Changes
               </button>
             </div>
           )}
-        </div>
-
-
-
+        </section>
 
         {loadingDisplays ? (
-          <div className="loading-row">
-            <div className="spinner" />
-            Detecting monitors...
-          </div>
+          <section className="card border border-base-300 bg-base-200 shadow-sm">
+            <div className="card-body items-center justify-center gap-4 py-12 text-center">
+              <span className="loading loading-spinner loading-lg text-primary"></span>
+              <div>
+                <h3 className="font-semibold text-base-content">Detecting monitors</h3>
+                <p className="text-sm text-base-content/60">
+                  Reading the current Windows display topology.
+                </p>
+              </div>
+            </div>
+          </section>
         ) : displays.length === 0 ? (
-          <div className="empty-copy">No monitors detected.</div>
+          <section className="card border border-dashed border-base-300 bg-base-200/60 shadow-sm">
+            <div className="card-body items-center justify-center gap-3 py-12 text-center">
+              <h3 className="font-semibold text-base-content">No monitors detected</h3>
+              <p className="max-w-sm text-sm text-base-content/60">
+                Connect a display or refresh the device list to try again.
+              </p>
+            </div>
+          </section>
         ) : (
-          <div>
-
-
-            {/* Settings */}
-
-
-            <div className="text-xs font-bold tracking-widest text-base-content/50 uppercase mb-4 pb-2 border-b border-base-300">Monitor settings</div>
-
-
+          <section className="space-y-4">
+            <div className="border-b border-base-300 pb-2">
+              <div className="text-xs font-bold uppercase tracking-widest text-base-content/50">
+                Monitor settings
+              </div>
+              <p className="mt-1 text-sm text-base-content/60">
+                Select a monitor in the layout to adjust its mode, orientation, and scale.
+              </p>
+            </div>
 
             <MonitorSettingsPanel
               display={selectedDisplay}
@@ -128,8 +153,7 @@ export default function Monitors() {
               onToggleMonitor={toggleMonitor}
               onMakePrimary={makePrimary}
             />
-
-          </div>
+          </section>
         )}
       </div>
     </div>

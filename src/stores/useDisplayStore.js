@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "../api";
+import { logAppError, logAppEvent } from "../debug/logging";
 import { buildMonitorSelections } from "../js/utils";
 import { useAppStore } from "./useAppStore";
 
@@ -31,9 +32,13 @@ export const useDisplayStore = create((set, get) => ({
   // ✅ THIS IS WHAT YOU'RE MISSING
   refreshDisplays: async () => {
     set({ loadingDisplays: true });
+    logAppEvent("displayStore", "Refreshing displays");
 
     try {
       const nextDisplays = await invoke("get_displays");
+      logAppEvent("displayStore", "Received displays", {
+        count: nextDisplays?.length ?? 0,
+      });
 
       set({
         displays: nextDisplays ?? [],
@@ -42,12 +47,14 @@ export const useDisplayStore = create((set, get) => ({
         originalPositions: {},
       });
     } catch (error) {
+      logAppError("displayStore", "Failed to refresh displays", error);
       useAppStore.getState().pushToast(
         `Failed to load displays: ${error}`,
         "error"
       );
     } finally {
       set({ loadingDisplays: false });
+      logAppEvent("displayStore", "Display refresh finished");
     }
   },
 }));

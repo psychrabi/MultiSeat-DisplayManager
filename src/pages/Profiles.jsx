@@ -1,4 +1,3 @@
-import { PlusIcon } from "../components/Icons.jsx";
 import { EmptyProfileState } from "../components/ui.jsx";
 import {
   AVATAR_COLORS,
@@ -10,6 +9,7 @@ import {
 
 import { useProfileStore } from "../stores/useProfileStore";
 import { useAppStore } from "../stores/useAppStore";
+import { logAppError, logAppEvent } from "../debug/logging";
 import { Plus } from "lucide-react";
 import { invoke } from "../api";
 
@@ -32,6 +32,10 @@ const ProfilesPage = () => {
     e?.preventDefault();
     if (!newProfileUsername.trim()) return;
 
+    logAppEvent("profiles", "Creating new profile", {
+      username: newProfileUsername,
+    });
+
     try {
       await invoke("save_user_profile", {
         username: newProfileUsername,
@@ -42,7 +46,11 @@ const ProfilesPage = () => {
       setSelectedProfileUser(newProfileUsername);
       setNewProfileUsername("");
       pushToast("Profile created successfully", "success");
+      logAppEvent("profiles", "Created new profile", {
+        username: newProfileUsername,
+      });
     } catch (err) {
+      logAppError("profiles", "Failed to create profile", err);
       pushToast(`Error creating profile: ${err}`, "error");
     }
   };
@@ -55,7 +63,7 @@ const ProfilesPage = () => {
 
   // ===== UI =====
   return (
-    <div className="flex flex-col h-full active">
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-base-300">
         <span className="text-xl font-semibold">{PAGE_TITLES.profiles}</span>
 

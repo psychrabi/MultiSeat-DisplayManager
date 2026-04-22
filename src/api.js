@@ -1,3 +1,5 @@
+import { logAppError, logAppEvent } from "./debug/logging";
+
 const liveInvoke =
   window.__TAURI__?.core?.invoke ??
   window.__TAURI__?.invoke ??
@@ -199,9 +201,25 @@ async function mockInvoke(command, args = {}) {
 }
 
 export async function invoke(command, args = {}) {
+  logAppEvent("api", `Invoking '${command}'`, args);
+
   if (liveInvoke) {
-    return liveInvoke(command, args);
+    try {
+      const result = await liveInvoke(command, args);
+      logAppEvent("api", `Completed '${command}'`, result);
+      return result;
+    } catch (error) {
+      logAppError("api", `Failed '${command}'`, error);
+      throw error;
+    }
   }
 
-  return mockInvoke(command, args);
+  try {
+    const result = await mockInvoke(command, args);
+    logAppEvent("api", `Completed mock '${command}'`, result);
+    return result;
+  } catch (error) {
+    logAppError("api", `Failed mock '${command}'`, error);
+    throw error;
+  }
 }

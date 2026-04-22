@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { invoke } from "../api";
+import { logAppError, logAppEvent, logAppWarning } from "../debug/logging";
 
 import { useDisplayStore } from "../stores/useDisplayStore";
 import { useAppStore } from "../stores/useAppStore";
@@ -34,8 +35,8 @@ export function useMonitorActions() {
   // =============================
   // DERIVED
   // =============================
-const hasPendingLayoutChanges =
-  Object.keys(pendingLayoutChanges ?? {}).length > 0;
+  const hasPendingLayoutChanges =
+    Object.keys(pendingLayoutChanges ?? {}).length > 0;
   // =============================
   // UI HELPERS
   // =============================
@@ -48,6 +49,7 @@ const hasPendingLayoutChanges =
   };
 
   const previewSelectMonitor = (deviceName) => {
+    logAppEvent("monitorActions", "Preview selected monitor", { deviceName });
     setHighlighted(deviceName);
     cardRefs.current[deviceName]?.scrollIntoView({
       behavior: "smooth",
@@ -56,6 +58,7 @@ const hasPendingLayoutChanges =
   };
 
   const selectMonitor = (deviceName) => {
+    logAppEvent("monitorActions", "Selected monitor", { deviceName });
     setHighlighted(deviceName);
   };
 
@@ -63,24 +66,27 @@ const hasPendingLayoutChanges =
   // LAYOUT (DRAG / SNAP)
   // =============================
   const draftPosition = (display, nextPosition) => {
-   useDisplayStore.setState((state) => ({
-  originalPositions: {
-    ...state.originalPositions,
-    ...(state.originalPositions[display.device_name]
-      ? {}
-      : {
-          [display.device_name]: {
-            x: display.position_x,
-            y: display.position_y,
-          },
-        }),
-  },
-
-  pendingLayoutChanges: {
-    ...state.pendingLayoutChanges,
-    [display.device_name]: nextPosition,
-  },
-}));
+    logAppEvent("monitorActions", "Drafted monitor position", {
+      deviceName: display.device_name,
+      nextPosition,
+    });
+    useDisplayStore.setState((state) => ({
+      originalPositions: {
+        ...state.originalPositions,
+        ...(state.originalPositions[display.device_name]
+          ? {}
+          : {
+              [display.device_name]: {
+                x: display.position_x,
+                y: display.position_y,
+              },
+            }),
+      },
+      pendingLayoutChanges: {
+        ...state.pendingLayoutChanges,
+        [display.device_name]: nextPosition,
+      },
+    }));
 
     setDisplays(
       displays.map((d) =>
@@ -98,7 +104,12 @@ const hasPendingLayoutChanges =
 
   const applyLayoutChanges = async () => {
     const entries = Object.entries(pendingLayoutChanges);
-    if (!entries.length) return;
+    if (!entries.length) {
+      logAppWarning("monitorActions", "Skipped layout apply because there are no pending changes");
+      return;
+    }
+
+    logAppEvent("monitorActions", "Applying layout changes", { count: entries.length });
 
     try {
       for (const [deviceName, pos] of entries) {
@@ -110,14 +121,19 @@ const hasPendingLayoutChanges =
       }
 
       pushToast(`Applied ${entries.length} layout changes`, "success");
+      logAppEvent("monitorActions", "Applied layout changes", { count: entries.length });
 
       await refreshDisplays();
     } catch (err) {
+      logAppError("monitorActions", "Failed to apply layout changes", err);
       pushToast(`Failed layout: ${err}`, "error");
     }
   };
 
   const cancelLayoutChanges = () => {
+    logAppEvent("monitorActions", "Cancelling layout changes", {
+      count: Object.keys(originalPositions ?? {}).length,
+    });
     setDisplays(
       displays.map((d) => {
         const original = originalPositions[d.device_name];
@@ -139,6 +155,10 @@ const hasPendingLayoutChanges =
   // MONITOR SETTINGS
   // =============================
   const resolutionChange = (display, resolution) => {
+    logAppEvent("monitorActions", "Resolution changed", {
+      deviceName: display.device_name,
+      resolution,
+    });
     const current =
       monitorSelections[display.device_name] ??
       buildSelectionForDisplay(display);
@@ -156,10 +176,14 @@ const hasPendingLayoutChanges =
   };
 
   const selectionChange = (deviceName, patch) => {
+    logAppEvent("monitorActions", "Updated monitor selection", { deviceName, patch });
     updateMonitorSelection(deviceName, patch);
   };
 
   const applyMonitorSettings = async (display) => {
+    logAppEvent("monitorActions", "Applying monitor settings", {
+      deviceName: display.device_name,
+    });
     const selection =
       monitorSelections[display.device_name] ??
       buildSelectionForDisplay(display);
@@ -183,11 +207,21 @@ const hasPendingLayoutChanges =
 
       if (result?.success) {
         pushToast(result.message, "success");
+        logAppEvent("monitorActions", "Applied display mode", {
+          deviceName: display.device_name,
+          width,
+          height,
+          refreshRate,
+        });
       }
 
       // orientation
       if (display.orientation !== orientation) {
         await invoke("set_orientation", {
+          deviceName: display.device_name,
+          orientation,
+        });
+        logAppEvent("monitorActions", "Applied orientation", {
           deviceName: display.device_name,
           orientation,
         });
@@ -198,6 +232,10 @@ const hasPendingLayoutChanges =
         await invoke("set_scale", {
           deviceName: display.device_name,
           scalePercent: scale,
+        });
+        logAppEvent("monitorActions", "Applied scale", {
+          deviceName: display.device_name,
+          scale,
         });
       }
 
@@ -228,7 +266,12 @@ const hasPendingLayoutChanges =
       await refreshProfiles();
 
       pushToast("Saved to profile", "info");
+      logAppEvent("monitorActions", "Saved monitor settings to profile", {
+        deviceName: display.device_name,
+        username: currentUser,
+      });
     } catch (err) {
+      logAppError("monitorActions", "Failed to apply monitor settings", err);
       pushToast(`Error: ${err}`, "error");
     } finally {
       setBusy("");
@@ -239,6 +282,10 @@ const hasPendingLayoutChanges =
   // MONITOR ACTIONS
   // =============================
   const toggleMonitor = async (display) => {
+    logAppEvent("monitorActions", "Toggling monitor state", {
+      deviceName: display.device_name,
+      enabled: !display.is_active,
+    });
     try {
       await invoke("toggle_monitor_state", {
         deviceName: display.device_name,
@@ -248,11 +295,15 @@ const hasPendingLayoutChanges =
       pushToast("Monitor toggled", "success");
       await refreshDisplays();
     } catch (err) {
+      logAppError("monitorActions", "Failed to toggle monitor", err);
       pushToast(`Toggle failed: ${err}`, "error");
     }
   };
 
   const makePrimary = async (display) => {
+    logAppEvent("monitorActions", "Setting primary monitor", {
+      deviceName: display.device_name,
+    });
     setBusy(display.device_name);
 
     try {
@@ -263,10 +314,15 @@ const hasPendingLayoutChanges =
       if (result?.success) {
         pushToast(result.message, "success");
         await refreshDisplays();
+        logAppEvent("monitorActions", "Primary monitor updated", {
+          deviceName: display.device_name,
+        });
       } else {
         pushToast(result?.message, "error");
+        logAppWarning("monitorActions", "Primary monitor update returned unsuccessful result", result);
       }
     } catch (err) {
+      logAppError("monitorActions", "Failed to set primary monitor", err);
       pushToast(`Error: ${err}`, "error");
     } finally {
       setBusy("");
@@ -277,6 +333,9 @@ const hasPendingLayoutChanges =
   // PROFILE ACTIONS
   // =============================
   const applyCurrentUserProfile = async () => {
+    logAppEvent("monitorActions", "Applying current user profile", {
+      username: currentUser,
+    });
     try {
       const results = await invoke("apply_profile_for_user", {
         username: currentUser,
@@ -290,6 +349,7 @@ const hasPendingLayoutChanges =
 
       await refreshDisplays();
     } catch (err) {
+      logAppError("monitorActions", "Failed to apply current user profile", err);
       pushToast(`Profile error: ${err}`, "error");
     }
   };

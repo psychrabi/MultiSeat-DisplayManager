@@ -1,4 +1,4 @@
-import { Check, Power, PowerCircle, Star } from "lucide-react";
+import { Check, Monitor, Power, PowerCircle, Star } from "lucide-react";
 import { formatPosition, getDisplayDimensions, getRefreshRates, getResolutionOptions, ORIENTATION_OPTIONS, SCALE_OPTIONS } from "../js/utils";
 
 const MonitorSettingsPanel = (props) => {
@@ -16,11 +16,13 @@ const MonitorSettingsPanel = (props) => {
 
   if (!display) {
     return (
-      <div className="card bg-base-200 border border-base-300 shadow-xl h-full flex flex-col items-center justify-center p-10">
-        <div className="opacity-40 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></svg>
+      <div className="card h-full border border-base-300 bg-base-200 shadow-xl">
+        <div className="flex flex-1 flex-col items-center justify-center p-10 text-center">
+          <div className="mb-4 rounded-full bg-base-300 p-4 text-base-content/40">
+            <Monitor className="size-12" />
+          </div>
+          <div className="text-sm text-base-content/50">Select a monitor to view its settings.</div>
         </div>
-        <div className="text-base-content/50 text-sm">Select a monitor to view its settings.</div>
       </div>
     );
   }
@@ -142,7 +144,7 @@ const MonitorSettingsPanel = (props) => {
                 disabled={busy}
                 onClick={() => onApply(display)}
               >
-                {busy ? <span className="loading loading-spinner loading-sm"></span> : <Check />}
+                {busy ? <span className="loading loading-spinner loading-sm"></span> : <Check className="size-4" />}
                 {autoSave ? "Apply" : "Apply & Save"}
               </button>
 
@@ -151,7 +153,7 @@ const MonitorSettingsPanel = (props) => {
                 type="button"
                 onClick={() => onToggleMonitor(display)}
               >
-                <PowerCircle />
+                <PowerCircle className="size-4" />
                 Disconnect
               </button>
 
@@ -161,7 +163,7 @@ const MonitorSettingsPanel = (props) => {
                   type="button"
                   onClick={() => onMakePrimary(display)}
                 >
-                  <Star />
+                  <Star className="size-4" />
                   Make Primary
                 </button>
               )}
@@ -172,7 +174,7 @@ const MonitorSettingsPanel = (props) => {
               type="button"
               onClick={() => onToggleMonitor(display)}
             >
-              <Power />
+              <Power className="size-4" />
               Reconnect
             </button>
           )}
