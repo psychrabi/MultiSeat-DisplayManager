@@ -8,32 +8,6 @@ export const useAppStore = create((set) => ({
   updateSettings: (patch) =>
     set((state) => ({ settings: { ...state.settings, ...patch } })),
 
-  debugPanelOpen: false,
-  debugLogs: [],
-  setDebugPanelOpen: (open) => set({ debugPanelOpen: open }),
-  toggleDebugPanel: () =>
-    set((state) => ({ debugPanelOpen: !state.debugPanelOpen })),
-  pushDebugLog: (entry) =>
-    set((state) => {
-      const id =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`;
-
-      const nextEntry = {
-        id,
-        level: entry?.level ?? "info",
-        source: entry?.source ?? "app",
-        message: entry?.message ?? "",
-        timestamp: entry?.timestamp ?? new Date().toISOString(),
-      };
-
-      return {
-        debugLogs: [...state.debugLogs, nextEntry].slice(-250),
-      };
-    }),
-  clearDebugLogs: () => set({ debugLogs: [] }),
-
   toasts: [],
   pushToast: (message, type = "info") =>
     set((state) => {

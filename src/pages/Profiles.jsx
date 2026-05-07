@@ -9,7 +9,6 @@ import {
 
 import { useProfileStore } from "../stores/useProfileStore";
 import { useAppStore } from "../stores/useAppStore";
-import { logAppError, logAppEvent } from "../debug/logging";
 import { Plus, Trash2, Monitor, UserCheck, Users } from "lucide-react";
 import { invoke } from "../api";
 
@@ -30,10 +29,6 @@ const ProfilesPage = () => {
     e?.preventDefault();
     if (!newProfileUsername.trim()) return;
 
-    logAppEvent("profiles", "Creating new profile", {
-      username: newProfileUsername,
-    });
-
     try {
       await invoke("save_user_profile", {
         username: newProfileUsername,
@@ -44,18 +39,12 @@ const ProfilesPage = () => {
       setSelectedProfileUser(newProfileUsername);
       setNewProfileUsername("");
       pushToast("Profile created successfully", "success");
-      logAppEvent("profiles", "Created new profile", {
-        username: newProfileUsername,
-      });
     } catch (err) {
-      logAppError("profiles", "Failed to create profile", err);
       pushToast(`Error creating profile: ${err}`, "error");
     }
   };
 
   const handleDeleteProfile = async (username) => {
-    logAppEvent("profiles", "Deleting profile", { username });
-
     try {
       await invoke("delete_user_profile", { username });
       await refreshProfiles();
@@ -63,9 +52,7 @@ const ProfilesPage = () => {
         setSelectedProfileUser(null);
       }
       pushToast("Profile deleted", "success");
-      logAppEvent("profiles", "Deleted profile", { username });
     } catch (err) {
-      logAppError("profiles", "Failed to delete profile", err);
       pushToast(`Error deleting profile: ${err}`, "error");
     }
   };

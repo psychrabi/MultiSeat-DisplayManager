@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Outlet, useLocation } from "react-router";
-import { DebugBar } from "./components/DebugBar";
 import { Sidebar } from "./components/Sidebar";
 import { ToastContainer } from "./components/ToastContainer";
 import { useInitApp } from "./hooks/useInitApp";
@@ -43,7 +42,6 @@ function App() {
             <Outlet />
           </div>
         </main>
-        <DebugBar />
       </div>
 
       <div className="drawer-side z-40">

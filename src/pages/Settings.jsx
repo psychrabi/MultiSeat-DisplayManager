@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Database, Power, Save, Settings2 } from "lucide-react";
 import { invoke } from "../api";
-import { logAppError, logAppEvent } from "../debug/logging";
 import { PAGE_TITLES } from "../js/utils";
 
 import { useAppStore } from "../stores/useAppStore";
@@ -22,10 +21,8 @@ const SettingsPage = () => {
         const enabled = await invoke("get_startup_enabled");
         if (!cancelled) {
           setStartupEnabled(Boolean(enabled));
-          logAppEvent("settings", "Loaded startup setting", { enabled: Boolean(enabled) });
         }
       } catch (error) {
-        logAppError("settings", "Failed to load startup setting", error);
         if (!cancelled) {
           pushToast(`Error loading startup setting: ${error}`, "error");
         }
@@ -47,7 +44,6 @@ const SettingsPage = () => {
     const nextAutoSave = !settings.autoSave;
     updateSettings({ autoSave: nextAutoSave });
     pushToast(`Auto-save: ${nextAutoSave ? "on" : "off"}`, "info");
-    logAppEvent("settings", "Updated auto-save setting", { enabled: nextAutoSave });
   }
 
   async function toggleStartup() {
@@ -56,13 +52,11 @@ const SettingsPage = () => {
     const nextEnabled = !startupEnabled;
     setStartupEnabled(nextEnabled);
     setStartupSaving(true);
-    logAppEvent("settings", "Updating startup setting", { enabled: nextEnabled });
 
     try {
       await invoke("set_startup", { enabled: nextEnabled });
       pushToast(nextEnabled ? "Will auto-apply on login" : "Startup disabled", "info");
     } catch (error) {
-      logAppError("settings", "Failed to update startup setting", error);
       setStartupEnabled(!nextEnabled);
       pushToast(`Error: ${error}`, "error");
     } finally {
@@ -74,7 +68,6 @@ const SettingsPage = () => {
     const nextPersist = !settings.persist;
     updateSettings({ persist: nextPersist });
     pushToast(`Persist mode: ${nextPersist ? "on" : "off"}`, "info");
-    logAppEvent("settings", "Updated persist setting", { enabled: nextPersist });
   }
 
   return (
