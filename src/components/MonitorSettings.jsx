@@ -5,7 +5,6 @@ const MonitorSettingsPanel = (props) => {
   const {
     display,
     selection,
-    autoSave,
     busy,
     onResolutionChange,
     onSelectionChange,
@@ -145,7 +144,7 @@ const MonitorSettingsPanel = (props) => {
                 onClick={() => onApply(display)}
               >
                 {busy ? <span className="loading loading-spinner loading-sm"></span> : <Check className="size-4" />}
-                {autoSave ? "Apply" : "Apply & Save"}
+                Apply
               </button>
 
               <button

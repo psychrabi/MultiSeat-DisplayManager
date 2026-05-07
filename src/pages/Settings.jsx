@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Database, Power, Save } from "lucide-react";
+import { Database, Power, Save, Settings2 } from "lucide-react";
 import { invoke } from "../api";
 import { logAppError, logAppEvent } from "../debug/logging";
 import { PAGE_TITLES } from "../js/utils";
@@ -51,9 +51,7 @@ const SettingsPage = () => {
   }
 
   async function toggleStartup() {
-    if (startupLoading || startupSaving) {
-      return;
-    }
+    if (startupLoading || startupSaving) return;
 
     const nextEnabled = !startupEnabled;
     setStartupEnabled(nextEnabled);
@@ -82,23 +80,30 @@ const SettingsPage = () => {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
-          Preferences
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold text-base-content">{PAGE_TITLES.settings}</h2>
-        <p className="mt-2 text-sm text-base-content/60">
-          Choose how display changes are applied and restored for this Windows account.
-        </p>
+        <div className="flex items-start gap-4">
+          <div className="rounded-xl bg-base-300/50 p-3">
+            <Settings2 className="size-6 text-base-content/60" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
+              Preferences
+            </p>
+            <h2 className="text-2xl font-semibold text-base-content">{PAGE_TITLES.settings}</h2>
+            <p className="text-sm text-base-content/60">
+              Choose how display changes are applied and restored for this Windows account.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4">
-        <section className="card border border-base-300 bg-base-200 shadow-sm">
+        <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="card-body gap-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-primary/10 p-3 text-primary">
+              <div className="rounded-xl bg-primary/10 p-3 text-primary shadow-sm">
                 <Power className="size-5" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h3 className="card-title">Auto-Apply on Login</h3>
                 <p className="text-sm text-base-content/70">
                   Automatically apply your saved display profile when this Windows account logs in.
@@ -107,11 +112,11 @@ const SettingsPage = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
               <div>
                 <div className="text-sm font-medium">Run at Windows startup</div>
                 <div className="mt-0.5 text-xs text-base-content/60">
-                  Adds an entry to the current user&apos;s `Run` registry key.
+                  Adds an entry to the current user's `Run` registry key.
                 </div>
               </div>
               <input
@@ -125,13 +130,13 @@ const SettingsPage = () => {
           </div>
         </section>
 
-        <section className="card border border-base-300 bg-base-200 shadow-sm">
+        <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="card-body gap-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-secondary/10 p-3 text-secondary">
+              <div className="rounded-xl bg-secondary/10 p-3 text-secondary shadow-sm">
                 <Database className="size-5" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h3 className="card-title">Persist to Registry</h3>
                 <p className="text-sm text-base-content/70">
                   When applying settings, also write them to the Windows registry so they survive
@@ -140,11 +145,11 @@ const SettingsPage = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
               <div>
                 <div className="text-sm font-medium">Persist mode by default</div>
                 <div className="mt-0.5 text-xs text-base-content/60">
-                  Uses `CDS_UPDATEREGISTRY | CDS_GLOBAL` when applying monitor settings.
+                  Uses CDS_UPDATEREGISTRY | CDS_GLOBAL when applying monitor settings.
                 </div>
               </div>
               <input
@@ -157,13 +162,13 @@ const SettingsPage = () => {
           </div>
         </section>
 
-        <section className="card border border-base-300 bg-base-200 shadow-sm">
+        <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="card-body gap-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-accent/10 p-3 text-accent">
+              <div className="rounded-xl bg-accent/10 p-3 text-accent shadow-sm">
                 <Save className="size-5" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h3 className="card-title">Profile Auto-Save on Apply</h3>
                 <p className="text-sm text-base-content/70">
                   Automatically save the applied display settings back to your user profile.
@@ -171,7 +176,7 @@ const SettingsPage = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
               <div>
                 <div className="text-sm font-medium">Auto-save profile after applying</div>
                 <div className="mt-0.5 text-xs text-base-content/60">

@@ -4,7 +4,6 @@ import MonitorSettingsPanel from "../components/MonitorSettings";
 import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 
 import { useDisplayStore } from "../stores/useDisplayStore";
-import { useAppStore } from "../stores/useAppStore";
 import { useMonitorActions } from "../hooks/useMonitorActions";
 import { Check, CheckSquare, RefreshCcw, X } from "lucide-react";
 
@@ -15,8 +14,6 @@ export default function Monitors() {
   const highlightedMonitor = useDisplayStore((s) => s.highlightedMonitor);
   const busyMonitor = useDisplayStore((s) => s.busyMonitor);
   const monitorSelections = useDisplayStore((s) => s.monitorSelections);
-
-  const settings = useAppStore((s) => s.settings);
 
   // ===== ACTIONS =====
   const {
@@ -33,7 +30,6 @@ export default function Monitors() {
     makePrimary,
     hasPendingLayoutChanges,
   } = useMonitorActions();
-  // ===== DERIVED =====
   // ===== DERIVED =====
   const selectedDisplay =
     displays.find((d) => d.device_name === highlightedMonitor) ??
@@ -145,7 +141,6 @@ export default function Monitors() {
             <MonitorSettingsPanel
               display={selectedDisplay}
               selection={selectedSelection}
-              autoSave={settings.autoSave}
               busy={busyMonitor === selectedDisplay?.device_name}
               onResolutionChange={resolutionChange}
               onSelectionChange={selectionChange}

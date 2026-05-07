@@ -96,10 +96,6 @@ export function useMonitorActions() {
       )
     );
 
-    pushToast(
-      `Position changed to (${nextPosition.x}, ${nextPosition.y})`,
-      "info"
-    );
   };
 
   const applyLayoutChanges = async () => {
@@ -241,35 +237,36 @@ export function useMonitorActions() {
 
       await refreshDisplays();
 
-      // save profile
-      const key = getDisplayKey(display.display_id);
+      if (settings.autoSave) {
+        const key = getDisplayKey(display.display_id);
 
-      const existing =
-        profiles.users[currentUser]?.assignments ?? {};
+        const existing =
+          profiles.users[currentUser]?.assignments ?? {};
 
-      await invoke("save_user_profile", {
-        username: currentUser,
-        assignments: {
-          ...existing,
-          [key]: {
-            display_id: display.display_id,
-            mode: { width, height, refresh_rate: refreshRate, bits_per_pixel: display.current_mode?.bits_per_pixel ?? 32 },
-            position_x: display.position_x,
-            position_y: display.position_y,
-            is_primary: display.is_primary,
-            orientation,
-            scale_factor: scale,
+        await invoke("save_user_profile", {
+          username: currentUser,
+          assignments: {
+            ...existing,
+            [key]: {
+              display_id: display.display_id,
+              mode: { width, height, refresh_rate: refreshRate, bits_per_pixel: display.current_mode?.bits_per_pixel ?? 32 },
+              position_x: display.position_x,
+              position_y: display.position_y,
+              is_primary: display.is_primary,
+              orientation,
+              scale_factor: scale,
+            },
           },
-        },
-      });
+        });
 
-      await refreshProfiles();
+        await refreshProfiles();
 
-      pushToast("Saved to profile", "info");
-      logAppEvent("monitorActions", "Saved monitor settings to profile", {
-        deviceName: display.device_name,
-        username: currentUser,
-      });
+        pushToast("Saved to profile", "info");
+        logAppEvent("monitorActions", "Saved monitor settings to profile", {
+          deviceName: display.device_name,
+          username: currentUser,
+        });
+      }
     } catch (err) {
       logAppError("monitorActions", "Failed to apply monitor settings", err);
       pushToast(`Error: ${err}`, "error");

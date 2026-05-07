@@ -1,3 +1,4 @@
+const DEFAULT_MODE = { refresh_rate: 60, width: 1920, height: 1080 };
 
 export const AVATAR_COLORS = [
   "bg-accent",
@@ -15,9 +16,6 @@ export const PAGE_TITLES = {
   settings: "Settings",
 };
 
-const SNAP_THRESHOLD = 50;
-
-
 export const ORIENTATION_OPTIONS = [
   { value: "landscape", label: "Landscape" },
   { value: "portrait", label: "Portrait" },
@@ -26,8 +24,6 @@ export const ORIENTATION_OPTIONS = [
 ];
 
 export const SCALE_OPTIONS = ["100", "125", "150", "175", "200"];
-
-
 
 export function getDisplayDimensions(display, mode = display.current_mode ?? DEFAULT_MODE) {
   const isPortrait =
@@ -38,7 +34,6 @@ export function getDisplayDimensions(display, mode = display.current_mode ?? DEF
     height: isPortrait ? mode.width : mode.height,
   };
 }
-
 
 export function getUserShortName(username) {
   return username?.split("\\").pop() || username || "Unknown";
@@ -213,5 +208,3 @@ export function snapLayoutPosition(targetDisplay, proposedX, proposedY, displays
 
   return bestPos;
 }
-
-

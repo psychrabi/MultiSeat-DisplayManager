@@ -10,11 +10,10 @@ import {
 import { useProfileStore } from "../stores/useProfileStore";
 import { useAppStore } from "../stores/useAppStore";
 import { logAppError, logAppEvent } from "../debug/logging";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, Monitor, UserCheck, Users } from "lucide-react";
 import { invoke } from "../api";
 
 const ProfilesPage = () => {
-  // ===== STORE =====
   const profiles = useProfileStore((s) => s.profiles);
   const selectedProfileUser = useProfileStore((s) => s.selectedProfileUser);
   const setSelectedProfileUser = useProfileStore((s) => s.setSelectedUser);
@@ -27,7 +26,6 @@ const ProfilesPage = () => {
   const currentUser = useAppStore((s) => s.currentUser);
   const pushToast = useAppStore((s) => s.pushToast);
 
-  // ===== ACTIONS =====
   const handleCreateProfile = async (e) => {
     e?.preventDefault();
     if (!newProfileUsername.trim()) return;
@@ -55,41 +53,67 @@ const ProfilesPage = () => {
     }
   };
 
-  // ===== DERIVED =====
+  const handleDeleteProfile = async (username) => {
+    logAppEvent("profiles", "Deleting profile", { username });
+
+    try {
+      await invoke("delete_user_profile", { username });
+      await refreshProfiles();
+      if (selectedProfileUser === username) {
+        setSelectedProfileUser(null);
+      }
+      pushToast("Profile deleted", "success");
+      logAppEvent("profiles", "Deleted profile", { username });
+    } catch (err) {
+      logAppError("profiles", "Failed to delete profile", err);
+      pushToast(`Error deleting profile: ${err}`, "error");
+    }
+  };
+
   const users = Object.keys(profiles.users ?? {});
   const selectedProfile = selectedProfileUser
     ? profiles.users[selectedProfileUser]
     : null;
 
-  // ===== UI =====
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between mb-4 pb-2 border-b border-base-300">
-        <span className="text-xl font-semibold">{PAGE_TITLES.profiles}</span>
-
-        <div className="flex gap-2">
-          <button className="btn btn-primary btn-sm" onClick={() => setNewProfileOpen(true)}>
-            <Plus />
+      <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm mb-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
+              Administration
+            </p>
+            <h2 className="text-2xl font-semibold text-base-content">{PAGE_TITLES.profiles}</h2>
+            <p className="text-sm text-base-content/60">
+              Manage user-specific display assignments and profiles.
+            </p>
+          </div>
+          <button className="btn btn-primary" onClick={() => setNewProfileOpen(true)}>
+            <Plus className="size-4" />
             New Profile
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto py-2">
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 h-full items-start">
-          {/* USERS LIST */}
+      <div className="flex-1 overflow-auto">
+        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6 h-full items-start">
           <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
-            <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between">
+            <div className="px-5 py-3.5 border-b border-base-300 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">Users</span>
+              <span className="badge badge-ghost badge-sm">{users.length}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               {users.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-6 h-full">
-                  No profiles yet.
+                <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-8 h-full">
+                  <div className="rounded-full bg-base-300 p-4">
+                    <Users className="size-8 text-base-content/40" />
+                  </div>
+                  <p className="text-sm font-medium">No profiles yet</p>
+                  <p className="text-xs text-base-content/40">Create a profile to get started.</p>
                 </div>
               ) : (
-                <ul className="menu bg-base-200 w-full p-0">
+                <ul className="menu bg-base-200 w-full p-0 divide-y divide-base-300/50">
                   {users.map((username, index) => {
                     const count = Object.keys(
                       profiles.users[username]?.assignments ?? {}
@@ -97,27 +121,52 @@ const ProfilesPage = () => {
 
                     return (
                       <li key={username}>
-                        <a
-                          className={`flex items-center gap-3 p-3 rounded-none border-b border-base-300/50 hover:bg-base-300/50 transition-colors ${selectedProfileUser === username ? "bg-primary/10 hover:bg-primary/20" : ""
-                            }`}
+                        <div
+                          className={`flex items-center gap-3 p-3.5 transition-colors cursor-pointer ${
+                            selectedProfileUser === username
+                              ? "bg-primary/10 hover:bg-primary/15"
+                              : "hover:bg-base-300/50"
+                          }`}
                           onClick={() => setSelectedProfileUser(username)}
                         >
                           <div
-                            className={`w-8 h-8 rounded-full flex-shrink-0 grid place-items-center text-xs font-bold text-black ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
+                            className={`w-9 h-9 rounded-xl flex-shrink-0 grid place-items-center text-xs font-bold text-black shadow-sm ${
+                              AVATAR_COLORS[index % AVATAR_COLORS.length]
+                            }`}
                           >
                             {getUserInitial(username)}
                           </div>
 
-                          <div className="flex flex-col">
-                            <div className={`text-sm font-medium ${selectedProfileUser === username ? "text-primary" : "text-base-content"}`}>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <div className={`text-sm font-medium truncate ${
+                              selectedProfileUser === username ? "text-primary" : "text-base-content"
+                            }`}>
                               {getUserShortName(username)}
                             </div>
-
-                            <div className="text-[10px] font-mono text-base-content/50">
-                              {count} monitor{count === 1 ? "" : "s"} assigned
+                            <div className="text-[10px] font-mono text-base-content/50 flex items-center gap-1.5">
+                              <Monitor className="size-3" />
+                              {count} monitor{count === 1 ? "" : "s"}
                             </div>
                           </div>
-                        </a>
+
+                          {username === currentUser && (
+                            <div className="badge badge-success badge-outline badge-sm font-mono tracking-widest gap-1">
+                              <UserCheck className="size-2.5" />
+                              YOU
+                            </div>
+                          )}
+
+                          <button
+                            className="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity text-error"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProfile(username);
+                            }}
+                            title={`Delete ${getUserShortName(username)}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
                       </li>
                     );
                   })}
@@ -126,50 +175,66 @@ const ProfilesPage = () => {
             </div>
           </div>
 
-          {/* PROFILE DETAIL */}
           <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
             {!selectedProfileUser || !selectedProfile ? (
               <EmptyProfileState />
             ) : (
               <>
-                <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">
-                    Profile: {getUserShortName(selectedProfileUser)}
-                  </span>
-
-                  {selectedProfileUser === currentUser && (
-                    <span className="badge badge-success badge-outline badge-sm font-mono tracking-widest">YOU</span>
-                  )}
+                <div className="px-5 py-3.5 border-b border-base-300 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs font-bold uppercase tracking-widest text-base-content/60">
+                      Profile: {getUserShortName(selectedProfileUser)}
+                    </div>
+                    {selectedProfileUser === currentUser && (
+                      <span className="badge badge-success badge-outline badge-sm font-mono tracking-widest gap-1">
+                        <UserCheck className="size-2.5" />
+                        YOU
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
                   {Object.entries(selectedProfile.assignments ?? {}).length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-6 h-full">
-                      No monitor assignments yet.
+                    <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-8 h-full">
+                      <div className="rounded-full bg-base-300 p-4">
+                        <Monitor className="size-8 text-base-content/40" />
+                      </div>
+                      <p className="text-sm font-medium">No monitor assignments</p>
+                      <p className="text-xs text-base-content/40">
+                        Assign monitors from the Monitors page.
+                      </p>
                     </div>
                   ) : (
-                    Object.entries(selectedProfile.assignments ?? {}).map(
-                      ([key, assignment]) => {
-                        const width =
-                          assignment.mode?.width ?? assignment.width ?? 0;
-                        const height =
-                          assignment.mode?.height ?? assignment.height ?? 0;
+                    <div className="divide-y divide-base-300/50">
+                      {Object.entries(selectedProfile.assignments ?? {}).map(
+                        ([key, assignment]) => {
+                          const width =
+                            assignment.mode?.width ?? assignment.width ?? 0;
+                          const height =
+                            assignment.mode?.height ?? assignment.height ?? 0;
 
-                        return (
-                          <div key={key} className="p-4 px-5 border-b border-base-300 grid grid-cols-[1fr_auto] gap-4 items-center">
-                            <div>
-                              <div className="text-xs font-mono text-base-content/70 mb-1">
-                                {getAssignmentMonitorName(key, assignment)}
+                          return (
+                            <div key={key} className="p-4 px-5 flex items-center gap-4 hover:bg-base-300/30 transition-colors">
+                              <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
+                                <Monitor className="size-5" />
                               </div>
-
-                              <div className="text-sm font-semibold text-primary">
-                                {width}x{height}
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-mono text-base-content/70 mb-0.5 truncate">
+                                  {getAssignmentMonitorName(key, assignment)}
+                                </div>
+                                <div className="text-sm font-semibold text-primary">
+                                  {width}x{height}
+                                </div>
+                                <div className="text-[10px] font-mono text-base-content/40 mt-0.5">
+                                  {assignment.orientation ?? "landscape"} &middot; {assignment.scale_factor ?? 100}% scale
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      }
-                    )
+                          );
+                        }
+                      )}
+                    </div>
                   )}
                 </div>
               </>
@@ -178,29 +243,39 @@ const ProfilesPage = () => {
         </div>
       </div>
 
-      {/* NEW PROFILE MODAL */}
       <dialog className={`modal ${newProfileOpen ? "modal-open" : ""}`}>
-        <div className="modal-box bg-base-200 border border-base-300">
-          <h3 className="font-bold text-lg mb-4">Create New Profile</h3>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text">Profile Name</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. John Doe, Gaming, Work..."
-              className="input input-bordered w-full bg-base-100"
-              value={newProfileUsername}
-              onChange={(e) => setNewProfileUsername(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateProfile(e)}
-            />
-          </div>
-          <div className="modal-action">
-            <button className="btn" onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleCreateProfile} disabled={!newProfileUsername.trim()}>Create</button>
-          </div>
+        <div className="modal-box bg-base-200 border border-base-300 shadow-2xl">
+          <h3 className="font-bold text-lg mb-1">Create New Profile</h3>
+          <p className="text-sm text-base-content/60 mb-5">
+            Enter a username or profile name for the new display assignment set.
+          </p>
+          <form onSubmit={handleCreateProfile}>
+            <div className="form-control w-full">
+              <label className="label">
+                <span className="label-text">Profile Name</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. John Doe, Gaming, Work..."
+                className="input input-bordered w-full bg-base-100"
+                value={newProfileUsername}
+                onChange={(e) => setNewProfileUsername(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={!newProfileUsername.trim()}>
+                Create
+              </button>
+            </div>
+          </form>
         </div>
-        <div className="modal-backdrop bg-base-300/60" onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}></div>
+        <form method="dialog" className="modal-backdrop bg-base-300/60">
+          <button onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}>close</button>
+        </form>
       </dialog>
     </div>
   );

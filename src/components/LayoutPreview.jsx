@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getDisplayDimensions } from "../js/utils";
-import { snapLayoutPosition } from "../js/utils";
+import { getDisplayDimensions, snapLayoutPosition } from "../js/utils";
 import { Star } from "lucide-react";
 
 const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectMonitor, highlightedMonitor }) => {
@@ -12,9 +11,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
 
   useEffect(() => {
     const node = innerRef.current;
-    if (!node) {
-      return undefined;
-    }
+    if (!node) return;
 
     const updateSize = () => {
       setSize({ width: node.clientWidth, height: node.clientHeight });
@@ -35,9 +32,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
   useEffect(() => {
     const handleMouseMove = (event) => {
       const drag = dragRef.current;
-      if (!drag) {
-        return;
-      }
+      if (!drag) return;
 
       const deltaX = Math.round((event.clientX - drag.startClientX) / drag.scale);
       const deltaY = Math.round((event.clientY - drag.startClientY) / drag.scale);
@@ -57,9 +52,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
 
     const handleMouseUp = (event) => {
       const drag = dragRef.current;
-      if (!drag) {
-        return;
-      }
+      if (!drag) return;
 
       const deltaX = Math.round((event.clientX - drag.startClientX) / drag.scale);
       const deltaY = Math.round((event.clientY - drag.startClientY) / drag.scale);
@@ -88,12 +81,11 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
     };
   }, [displays, onDraftPosition]);
 
-  // Wait until we have container dimensions before trying to math out the layout scaling
   if (size.width === 0 || size.height === 0) {
     return (
       <div
         ref={innerRef}
-        className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+        className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-[280px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
       />
     );
   }
@@ -102,7 +94,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
     return (
       <div
         ref={innerRef}
-        className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+        className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-[280px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
       >
         <div className="text-base-content/50 text-sm">No monitors detected.</div>
       </div>
@@ -149,7 +141,6 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
         : { x: display.position_x, y: display.position_y };
     const dimensions = getDisplayDimensions(display, display.current_mode);
 
-    // We only compute bounds for ACTIVE displays first
     if (display.is_active) {
       minX = Math.min(minX, previewPosition.x);
       minY = Math.min(minY, previewPosition.y);
@@ -158,16 +149,14 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
     }
   });
 
-  // If no active displays exist, reset bounds to 0
   if (minX === Infinity) {
     minX = 0; minY = 0; maxX = 0; maxY = 0;
   }
 
-  // Second pass: arrange inactive displays natively BELOW the active grid
   let inactiveOffsetX = minX;
   const INACTIVE_SPACING = 200;
   const inactiveY = maxY + INACTIVE_SPACING;
-  
+
   let layoutMaxX = maxX;
   let layoutMaxY = maxY;
 
@@ -182,11 +171,10 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
     } else if (!display.is_active) {
       x = inactiveOffsetX;
       y = inactiveY;
-      
+
       const dims = getDisplayDimensions(display, display.current_mode);
       inactiveOffsetX += dims.width + INACTIVE_SPACING;
-      
-      // Expand bounds to include inactive row
+
       layoutMaxX = Math.max(layoutMaxX, x + dims.width);
       layoutMaxY = Math.max(layoutMaxY, y + dims.height);
     }
@@ -206,8 +194,9 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
   return (
     <div
       ref={innerRef}
-      className="bg-base-200 border border-base-300 rounded-xl h-[260px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+      className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-[280px] mb-6 relative overflow-hidden shadow-inner"
     >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:20px_20px] pointer-events-none" />
       <div className="relative w-full h-full">
         {displayPositions.map((display) => {
           const dimensions = getDisplayDimensions(display, display.current_mode);
@@ -215,20 +204,30 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
             (display.device_string || "Monitor").length > 15
               ? `${(display.device_string || "Monitor").slice(0, 14)}...`
               : display.device_string || "Monitor";
+          const isHighlighted = highlightedMonitor === display.device_name;
+          const isDragging = dragRef.current?.deviceName === display.device_name;
 
           return (
             <div
               key={display.device_name}
-              className={`absolute bg-base-100 border flex flex-col items-center justify-center text-base-content/60 transition-[border-color,transform] duration-200 shadow-md select-none cursor-grab active:cursor-grabbing hover:border-accent  hover:z-20 rounded-md ${highlightedMonitor === display.device_name ? "border-accent z-30 shadow-accent/20" : "border-base-content/20 z-10"
-                } ${display.is_primary ? "bg-primary/5" : ""
-                } ${!display.is_active ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20 hover:scale-100 !active:cursor-default" : ""
-                } ${dragRef.current?.deviceName === display.device_name ? "opacity-80 z-[100] border-accent" : ""
-                }`}
+              className={`absolute flex flex-col items-center justify-center text-base-content/60 select-none cursor-grab active:cursor-grabbing rounded-xl transition-all duration-150 ${
+                isHighlighted
+                  ? "border-accent z-30 shadow-lg shadow-accent/20 ring-2 ring-accent/40"
+                  : display.is_primary
+                    ? "border-primary/40 z-10"
+                    : "border-base-content/20 z-10 hover:border-accent/50 hover:z-20"
+              } ${
+                display.is_primary ? "bg-primary/5" : "bg-base-100"
+              } ${
+                !display.is_active
+                  ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20 hover:scale-100 !active:cursor-default"
+                  : ""
+              } ${
+                isDragging ? "opacity-80 z-[100] border-accent shadow-xl shadow-accent/30 scale-105" : ""
+              }`}
               data-device={display.device_name}
               onMouseDown={(event) => {
-                if (!display.is_active || scale <= 0) {
-                  return;
-                }
+                if (!display.is_active || scale <= 0) return;
 
                 dragRef.current = {
                   deviceName: display.device_name,
@@ -244,10 +243,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
                 event.preventDefault();
               }}
               onClick={() => {
-                if (suppressClickRef.current) {
-                  return;
-                }
-
+                if (suppressClickRef.current) return;
                 onSelectMonitor(display.device_name);
               }}
               style={{
@@ -258,7 +254,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
               }}
               title={display.device_string || "Monitor"}
             >
-              <div className="text-2xl font-bold font-mono mb-1 text-base-content">
+              <div className={`text-2xl font-bold font-mono mb-1 ${isHighlighted ? "text-accent" : "text-base-content"}`}>
                 {display.device_name.match(/DISPLAY(\d+)/i)?.[1] || display.previewIndex + 1}
               </div>
               <div className="text-[10px] font-mono opacity-70">
@@ -273,7 +269,7 @@ const LayoutPreview = ({ displays, monitorSelections, onDraftPosition, onSelectM
                 </div>
               )}
               {display.is_primary && (
-                <div className="absolute top-1 left-1.5 text-warning" title="Primary Monitor">
+                <div className="absolute top-1 left-1.5 text-warning drop-shadow-sm" title="Primary Monitor">
                   <Star fill="currentColor" strokeWidth={1} width={12} height={12} />
                 </div>
               )}

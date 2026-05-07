@@ -42,17 +42,13 @@ export const useAppStore = create((set) => ({
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random()}`;
 
-      const toast = { id, message, type };
-
-      setTimeout(() => {
-        set((s) => ({
-          toasts: s.toasts.filter((t) => t.id !== id),
-        }));
-      }, 3000);
-
       return {
-        toasts: [...state.toasts, toast],
+        toasts: [...state.toasts, { id, message, type }],
       };
     }),
+  dismissToast: (id) =>
+    set((state) => ({
+      toasts: state.toasts.filter((t) => t.id !== id),
+    })),
   clearToasts: () => set({ toasts: [] }),
 }));

@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { DebugBar } from "./components/DebugBar";
 import { Sidebar } from "./components/Sidebar";
 import { ToastContainer } from "./components/ToastContainer";
 import { useInitApp } from "./hooks/useInitApp";
 
-
 function App() {
   useInitApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="drawer min-h-screen bg-base-100 lg:drawer-open">
@@ -38,8 +38,10 @@ function App() {
             </div>
           </div>
         </nav>
-        <main className="flex-1 p-4 md:p-6">
-          <Outlet />
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <div key={location.pathname} className="animate-fade-in">
+            <Outlet />
+          </div>
         </main>
         <DebugBar />
       </div>
