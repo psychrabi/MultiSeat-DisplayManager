@@ -5,7 +5,7 @@ import App from "./App";
 import MonitorsPage from "./pages/Monitors";
 import SettingsPage from "./pages/Settings";
 import ProfilesPage from "./pages/Profiles";
-import "./App.css"
+import "./App.css";
 
 ReactDOM.createRoot(root).render(
   <HashRouter>

@@ -23,7 +23,9 @@ export function Sidebar({ onNavigate }) {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
               Control Panel
             </p>
-            <h2 className="truncate text-lg font-semibold text-base-content">Display Manager</h2>
+            <h2 className="truncate text-lg font-semibold text-base-content">
+              Display Manager
+            </h2>
             <p className="truncate text-sm text-base-content/60 flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-success" />
               {currentUser || "Windows session"}

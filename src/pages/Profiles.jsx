@@ -32,7 +32,7 @@ const ProfilesPage = () => {
     try {
       await invoke("save_user_profile", {
         username: newProfileUsername,
-        assignments: {}
+        assignments: {},
       });
       await refreshProfiles();
       setNewProfileOpen(false);
@@ -70,12 +70,17 @@ const ProfilesPage = () => {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
               Administration
             </p>
-            <h2 className="text-2xl font-semibold text-base-content">{PAGE_TITLES.profiles}</h2>
+            <h2 className="text-2xl font-semibold text-base-content">
+              {PAGE_TITLES.profiles}
+            </h2>
             <p className="text-sm text-base-content/60">
               Manage user-specific display assignments and profiles.
             </p>
           </div>
-          <button className="btn btn-primary" onClick={() => setNewProfileOpen(true)}>
+          <button
+            className="btn btn-primary"
+            onClick={() => setNewProfileOpen(true)}
+          >
             <Plus className="size-4" />
             New Profile
           </button>
@@ -86,7 +91,9 @@ const ProfilesPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6 h-full items-start">
           <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
             <div className="px-5 py-3.5 border-b border-base-300 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">Users</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">
+                Users
+              </span>
               <span className="badge badge-ghost badge-sm">{users.length}</span>
             </div>
 
@@ -97,13 +104,15 @@ const ProfilesPage = () => {
                     <Users className="size-8 text-base-content/40" />
                   </div>
                   <p className="text-sm font-medium">No profiles yet</p>
-                  <p className="text-xs text-base-content/40">Create a profile to get started.</p>
+                  <p className="text-xs text-base-content/40">
+                    Create a profile to get started.
+                  </p>
                 </div>
               ) : (
                 <ul className="menu bg-base-200 w-full p-0 divide-y divide-base-300/50">
                   {users.map((username, index) => {
                     const count = Object.keys(
-                      profiles.users[username]?.assignments ?? {}
+                      profiles.users[username]?.assignments ?? {},
                     ).length;
 
                     return (
@@ -125,9 +134,13 @@ const ProfilesPage = () => {
                           </div>
 
                           <div className="flex flex-col min-w-0 flex-1">
-                            <div className={`text-sm font-medium truncate ${
-                              selectedProfileUser === username ? "text-primary" : "text-base-content"
-                            }`}>
+                            <div
+                              className={`text-sm font-medium truncate ${
+                                selectedProfileUser === username
+                                  ? "text-primary"
+                                  : "text-base-content"
+                              }`}
+                            >
                               {getUserShortName(username)}
                             </div>
                             <div className="text-[10px] font-mono text-base-content/50 flex items-center gap-1.5">
@@ -182,12 +195,15 @@ const ProfilesPage = () => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                  {Object.entries(selectedProfile.assignments ?? {}).length === 0 ? (
+                  {Object.entries(selectedProfile.assignments ?? {}).length ===
+                  0 ? (
                     <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-8 h-full">
                       <div className="rounded-full bg-base-300 p-4">
                         <Monitor className="size-8 text-base-content/40" />
                       </div>
-                      <p className="text-sm font-medium">No monitor assignments</p>
+                      <p className="text-sm font-medium">
+                        No monitor assignments
+                      </p>
                       <p className="text-xs text-base-content/40">
                         Assign monitors from the Monitors page.
                       </p>
@@ -202,7 +218,10 @@ const ProfilesPage = () => {
                             assignment.mode?.height ?? assignment.height ?? 0;
 
                           return (
-                            <div key={key} className="p-4 px-5 flex items-center gap-4 hover:bg-base-300/30 transition-colors">
+                            <div
+                              key={key}
+                              className="p-4 px-5 flex items-center gap-4 hover:bg-base-300/30 transition-colors"
+                            >
                               <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
                                 <Monitor className="size-5" />
                               </div>
@@ -214,12 +233,14 @@ const ProfilesPage = () => {
                                   {width}x{height}
                                 </div>
                                 <div className="text-[10px] font-mono text-base-content/40 mt-0.5">
-                                  {assignment.orientation ?? "landscape"} &middot; {assignment.scale_factor ?? 100}% scale
+                                  {assignment.orientation ?? "landscape"}{" "}
+                                  &middot; {assignment.scale_factor ?? 100}%
+                                  scale
                                 </div>
                               </div>
                             </div>
                           );
-                        }
+                        },
                       )}
                     </div>
                   )}
@@ -251,17 +272,35 @@ const ProfilesPage = () => {
               />
             </div>
             <div className="modal-action">
-              <button type="button" className="btn btn-ghost" onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setNewProfileOpen(false);
+                  setNewProfileUsername("");
+                }}
+              >
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary" disabled={!newProfileUsername.trim()}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={!newProfileUsername.trim()}
+              >
                 Create
               </button>
             </div>
           </form>
         </div>
         <form method="dialog" className="modal-backdrop bg-base-300/60">
-          <button onClick={() => { setNewProfileOpen(false); setNewProfileUsername(""); }}>close</button>
+          <button
+            onClick={() => {
+              setNewProfileOpen(false);
+              setNewProfileUsername("");
+            }}
+          >
+            close
+          </button>
         </form>
       </dialog>
     </div>

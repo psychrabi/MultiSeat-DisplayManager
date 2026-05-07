@@ -41,10 +41,9 @@ export const useDisplayStore = create((set, get) => ({
         originalPositions: {},
       });
     } catch (error) {
-      useAppStore.getState().pushToast(
-        `Failed to load displays: ${error}`,
-        "error"
-      );
+      useAppStore
+        .getState()
+        .pushToast(`Failed to load displays: ${error}`, "error");
     } finally {
       set({ loadingDisplays: false });
     }

@@ -12,10 +12,10 @@ pub struct DisplayAssignment {
     pub position_x: i32,
     pub position_y: i32,
     pub is_primary: bool,
-    pub orientation: String,      // "landscape", "portrait", etc.
+    pub orientation: String, // "landscape", "portrait", etc.
     pub scale_factor: u32,
     #[serde(default)]
-    pub monitor_name: Option<String>,  // Friendly monitor name (e.g., "MSI MAG274QRF-QD")
+    pub monitor_name: Option<String>, // Friendly monitor name (e.g., "MSI MAG274QRF-QD")
 }
 
 /// Per-user profile containing display assignments
@@ -37,8 +37,7 @@ pub struct AllProfiles {
 }
 
 fn config_path() -> PathBuf {
-    let mut path = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("C:\\ProgramData"));
+    let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("C:\\ProgramData"));
     path.push("AsterDisplayManager");
     path.push("profiles.json");
     path
@@ -84,7 +83,11 @@ pub fn display_id_to_key(display_id: &DisplayId) -> String {
 /// Format: \\?\DISPLAY#MSI30B9#5&... or edid___?_DISPLAY_MSI30B9_5&...
 fn extract_pnp_id(edid: &str) -> Option<String> {
     // Try to find pattern like DISPLAY#PnP_ID# or DISPLAY_PnP_ID_
-    if let Some(start) = edid.find("DISPLAY").and_then(|i| edid[i..].find(|c: char| c == '#' || c == '_').map(|j| i + j + 1)) {
+    if let Some(start) = edid.find("DISPLAY").and_then(|i| {
+        edid[i..]
+            .find(|c: char| c == '#' || c == '_')
+            .map(|j| i + j + 1)
+    }) {
         if let Some(end) = edid[start..].find(|c: char| c == '#' || c == '_') {
             let pnp_id = &edid[start..start + end];
             if !pnp_id.is_empty() {
@@ -117,10 +120,9 @@ pub fn parse_display_key(key: &str) -> Option<(u64, u32)> {
     }
     let parts: Vec<&str> = key.split('_').collect();
     if parts.len() == 2 {
-        if let (Ok(adapter_luid), Ok(target_id)) = (
-            parts[0].parse::<u64>(),
-            parts[1].parse::<u32>(),
-        ) {
+        if let (Ok(adapter_luid), Ok(target_id)) =
+            (parts[0].parse::<u64>(), parts[1].parse::<u32>())
+        {
             return Some((adapter_luid, target_id));
         }
     }
@@ -139,91 +141,63 @@ pub fn remap_profile_assignments(
     // Build a map of EDID hashes to current displays
     let mut current_by_edid: HashMap<String, &crate::display::DisplayDevice> = HashMap::new();
     let mut current_by_target: HashMap<(u64, u32), &crate::display::DisplayDevice> = HashMap::new();
-    let mut current_by_device_name: HashMap<String, &crate::display::DisplayDevice> = HashMap::new();
+    let mut current_by_device_name: HashMap<String, &crate::display::DisplayDevice> =
+        HashMap::new();
 
     for display in current_displays {
         if let Some(ref edid) = display.display_id.edid_hash {
             current_by_edid.entry(edid.clone()).or_insert(display);
         }
-        let key = (display.display_id.adapter_luid, display.display_id.target_id);
+        let key = (
+            display.display_id.adapter_luid,
+            display.display_id.target_id,
+        );
         current_by_target.entry(key).or_insert(display);
         current_by_device_name.insert(display.device_name.clone(), display);
     }
-
-    eprintln!("[remap] Profile has {} assignments", profile.assignments.len());
-    eprintln!("[remap] Current displays: {} ({} with EDID)", 
-        current_displays.len(), current_by_edid.len());
 
     for (profile_key, assignment) in &profile.assignments {
         let mut matched_display: Option<&crate::display::DisplayDevice> = None;
         let mut new_key = profile_key.clone();
 
-        eprintln!("[remap] Checking profile key: {}", profile_key);
-
-        // Try to match by EDID hash first (most reliable)
         if profile_key.starts_with("edid_") {
-            // Extract the EDID part and normalize it (replace _ with # and \\ for matching)
             let edid_part = profile_key.strip_prefix("edid_").unwrap_or(profile_key);
-            eprintln!("[remap]   Trying EDID match for: {}", edid_part);
-            
-            // Normalize the profile key: convert underscores back to original format
-            // Profile key: ___?_DISPLAY_MSI30B9_5&... 
-            // Current EDID: \\?\DISPLAY#MSI30B9#5&...
             let normalized_profile_edid = edid_part
                 .replace("__", "\\")
                 .replace("_DISPLAY_", "#DISPLAY#")
                 .replace('_', "#");
-            
-            eprintln!("[remap]   Normalized profile EDID: {}", normalized_profile_edid);
-            
-            // Extract PnP ID and UID from profile key for matching
-            // Format: \\?\DISPLAY#PnP_ID#...&UIDxxx_{GUID}
+
             let profile_pnp_id = extract_pnp_id(edid_part);
             let profile_uid = extract_uid(edid_part);
-            
-            eprintln!("[remap]   Profile PnP ID: {:?}, UID: {:?}", profile_pnp_id, profile_uid);
-            
-            // Find matching EDID in current displays
+
             for (edid, display) in &current_by_edid {
-                eprintln!("[remap]   Comparing with current EDID: {}", edid);
-                
                 let current_pnp_id = extract_pnp_id(edid);
                 let current_uid = extract_uid(edid);
-                
-                eprintln!("[remap]   Current PnP ID: {:?}, UID: {:?}", current_pnp_id, current_uid);
-                
-                // Try multiple matching strategies
-                let matches = 
-                    // Exact match
-                    edid == edid_part ||
-                    // Normalized match
-                    edid == &normalized_profile_edid ||
-                    // PnP ID + UID match (most reliable for same physical monitor)
-                    (profile_pnp_id.is_some() && current_pnp_id.is_some() &&
-                     profile_pnp_id == current_pnp_id &&
-                     profile_uid.is_some() && current_uid.is_some() &&
-                     profile_uid == current_uid) ||
-                    // PnP ID match only (same model monitor)
-                    (profile_pnp_id.is_some() && profile_pnp_id == current_pnp_id);
-                
+
+                let matches = edid == edid_part
+                    || edid == &normalized_profile_edid
+                    || (profile_pnp_id.is_some()
+                        && current_pnp_id.is_some()
+                        && profile_pnp_id == current_pnp_id
+                        && profile_uid.is_some()
+                        && current_uid.is_some()
+                        && profile_uid == current_uid)
+                    || (profile_pnp_id.is_some() && profile_pnp_id == current_pnp_id);
+
                 if matches {
-                    eprintln!("[remap]   Found EDID match: {}", display.device_name);
                     matched_display = Some(*display);
                     new_key = display_id_to_key(&display.display_id);
                     break;
                 }
             }
         } else if let Some((adapter_luid, target_id)) = parse_display_key(profile_key) {
-            eprintln!("[remap]   Trying target_id match: {}", target_id);
-            // Try exact match by adapter_luid + target_id
             if let Some(display) = current_by_target.get(&(adapter_luid, target_id)) {
-                eprintln!("[remap]   Found exact match: {}", display.device_name);
                 matched_display = Some(*display);
             } else {
-                // Try to find by target_id alone (adapter may have changed)
                 for ((_luid, tid), display) in &current_by_target {
-                    if *tid == target_id && !used_display_ids.contains(&display_id_to_key(&display.display_id)) {
-                        eprintln!("[remap]   Found target_id match: {}", display.device_name);
+                    if *tid == target_id
+                        && !used_display_ids.contains(&display_id_to_key(&display.display_id))
+                    {
                         matched_display = Some(*display);
                         new_key = display_id_to_key(&display.display_id);
                         break;
@@ -231,31 +205,22 @@ pub fn remap_profile_assignments(
                 }
             }
         } else {
-            // Old format: key might be device_name (e.g., "\\\\.\\DISPLAY1")
-            eprintln!("[remap]   Trying device_name match: {}", profile_key);
             if let Some(display) = current_by_device_name.get(profile_key) {
-                eprintln!("[remap]   Found device_name match: {}", display.device_name);
                 matched_display = Some(*display);
                 new_key = display_id_to_key(&display.display_id);
             }
         }
 
-        // If we found a matching display, use it
         if let Some(display) = matched_display {
             if !used_display_ids.contains(&new_key) {
                 let mut new_assignment = assignment.clone();
                 new_assignment.display_id = display.display_id.clone();
-                eprintln!("[remap] Remapped to key: {}", new_key);
                 remapped.insert(new_key.clone(), new_assignment);
                 used_display_ids.insert(new_key);
             }
-        } else {
-            eprintln!("[remap] No match found for key: {}", profile_key);
         }
-        // If no match found, skip this assignment (display not connected)
     }
 
-    eprintln!("[remap] Result: {} remapped assignments", remapped.len());
     remapped
 }
 
@@ -275,7 +240,10 @@ pub fn set_startup_enabled(enabled: bool, exe_path: &str) -> Result<(), String> 
 
     if enabled {
         run_key
-            .set_value("AsterDisplayManager", &format!("\"{}\" --apply-profile", exe_path))
+            .set_value(
+                "AsterDisplayManager",
+                &format!("\"{}\" --apply-profile", exe_path),
+            )
             .map_err(|e| e.to_string())?;
     } else {
         let _ = run_key.delete_value("AsterDisplayManager");

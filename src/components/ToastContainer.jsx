@@ -9,7 +9,7 @@ export function ToastContainer() {
     if (toasts.length === 0) return;
 
     const timers = toasts.map((t) =>
-      setTimeout(() => dismissToast(t.id), 3000)
+      setTimeout(() => dismissToast(t.id), 3000),
     );
 
     return () => timers.forEach(clearTimeout);
@@ -21,10 +21,13 @@ export function ToastContainer() {
     <div className="toast toast-end toast-bottom z-[1000] pointer-events-none">
       {toasts.map((t) => {
         const alertType =
-          t.type === "error" ? "alert-error"
-          : t.type === "success" ? "alert-success"
-          : t.type === "warn" ? "alert-warning"
-          : "alert-info";
+          t.type === "error"
+            ? "alert-error"
+            : t.type === "success"
+              ? "alert-success"
+              : t.type === "warn"
+                ? "alert-warning"
+                : "alert-info";
 
         return (
           <div

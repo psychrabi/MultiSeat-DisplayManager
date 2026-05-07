@@ -76,8 +76,8 @@ export function useMonitorActions() {
       displays.map((d) =>
         d.device_name === display.device_name
           ? { ...d, position_x: nextPosition.x, position_y: nextPosition.y }
-          : d
-      )
+          : d,
+      ),
     );
   };
 
@@ -108,7 +108,7 @@ export function useMonitorActions() {
         return original
           ? { ...d, position_x: original.x, position_y: original.y }
           : d;
-      })
+      }),
     );
 
     useDisplayStore.setState({
@@ -184,8 +184,7 @@ export function useMonitorActions() {
       if (settings.autoSave) {
         const key = getDisplayKey(display.display_id);
 
-        const existing =
-          profiles.users[currentUser]?.assignments ?? {};
+        const existing = profiles.users[currentUser]?.assignments ?? {};
 
         await invoke("save_user_profile", {
           username: currentUser,
@@ -193,7 +192,12 @@ export function useMonitorActions() {
             ...existing,
             [key]: {
               display_id: display.display_id,
-              mode: { width, height, refresh_rate: refreshRate, bits_per_pixel: display.current_mode?.bits_per_pixel ?? 32 },
+              mode: {
+                width,
+                height,
+                refresh_rate: refreshRate,
+                bits_per_pixel: display.current_mode?.bits_per_pixel ?? 32,
+              },
               position_x: display.position_x,
               position_y: display.position_y,
               is_primary: display.is_primary,

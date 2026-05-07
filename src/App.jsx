@@ -27,13 +27,19 @@ function App() {
               aria-label={drawerOpen ? "Close sidebar" : "Open sidebar"}
               className="btn btn-square btn-ghost lg:hidden"
             >
-              {drawerOpen ? <PanelLeftClose className="size-5" /> : <PanelLeftOpen className="size-5" />}
+              {drawerOpen ? (
+                <PanelLeftClose className="size-5" />
+              ) : (
+                <PanelLeftOpen className="size-5" />
+              )}
             </label>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
                 ASTER
               </p>
-              <h1 className="text-lg font-semibold text-base-content">Display Manager</h1>
+              <h1 className="text-lg font-semibold text-base-content">
+                Display Manager
+              </h1>
             </div>
           </div>
         </nav>

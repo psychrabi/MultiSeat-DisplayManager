@@ -37,8 +37,8 @@ export default function Monitors() {
     null;
 
   const selectedSelection = selectedDisplay
-    ? monitorSelections[selectedDisplay.device_name] ??
-    buildSelectionForDisplay(selectedDisplay)
+    ? (monitorSelections[selectedDisplay.device_name] ??
+      buildSelectionForDisplay(selectedDisplay))
     : null;
 
   // ===== UI =====
@@ -50,9 +50,12 @@ export default function Monitors() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
               Control Center
             </p>
-            <h2 className="text-2xl font-semibold text-base-content">{PAGE_TITLES.monitors}</h2>
+            <h2 className="text-2xl font-semibold text-base-content">
+              {PAGE_TITLES.monitors}
+            </h2>
             <p className="text-sm text-base-content/60">
-              Arrange the desktop layout, inspect active displays, and apply per-monitor changes.
+              Arrange the desktop layout, inspect active displays, and apply
+              per-monitor changes.
             </p>
           </div>
 
@@ -62,7 +65,10 @@ export default function Monitors() {
               Refresh
             </button>
 
-            <button className="btn btn-secondary" onClick={applyCurrentUserProfile}>
+            <button
+              className="btn btn-secondary"
+              onClick={applyCurrentUserProfile}
+            >
               <CheckSquare className="size-4" />
               Apply My Profile
             </button>
@@ -78,7 +84,8 @@ export default function Monitors() {
                 Current layout
               </div>
               <p className="mt-1 text-sm text-base-content/60">
-                Drag active monitors to preview new positions before applying them.
+                Drag active monitors to preview new positions before applying
+                them.
               </p>
             </div>
           </div>
@@ -111,7 +118,9 @@ export default function Monitors() {
             <div className="card-body items-center justify-center gap-4 py-12 text-center">
               <span className="loading loading-spinner loading-lg text-primary"></span>
               <div>
-                <h3 className="font-semibold text-base-content">Detecting monitors</h3>
+                <h3 className="font-semibold text-base-content">
+                  Detecting monitors
+                </h3>
                 <p className="text-sm text-base-content/60">
                   Reading the current Windows display topology.
                 </p>
@@ -121,7 +130,9 @@ export default function Monitors() {
         ) : displays.length === 0 ? (
           <section className="card border border-dashed border-base-300 bg-base-200/60 shadow-sm">
             <div className="card-body items-center justify-center gap-3 py-12 text-center">
-              <h3 className="font-semibold text-base-content">No monitors detected</h3>
+              <h3 className="font-semibold text-base-content">
+                No monitors detected
+              </h3>
               <p className="max-w-sm text-sm text-base-content/60">
                 Connect a display or refresh the device list to try again.
               </p>
@@ -134,7 +145,8 @@ export default function Monitors() {
                 Monitor settings
               </div>
               <p className="mt-1 text-sm text-base-content/60">
-                Select a monitor in the layout to adjust its mode, orientation, and scale.
+                Select a monitor in the layout to adjust its mode, orientation,
+                and scale.
               </p>
             </div>
 

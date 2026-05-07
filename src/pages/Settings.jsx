@@ -55,7 +55,10 @@ const SettingsPage = () => {
 
     try {
       await invoke("set_startup", { enabled: nextEnabled });
-      pushToast(nextEnabled ? "Will auto-apply on login" : "Startup disabled", "info");
+      pushToast(
+        nextEnabled ? "Will auto-apply on login" : "Startup disabled",
+        "info",
+      );
     } catch (error) {
       setStartupEnabled(!nextEnabled);
       pushToast(`Error: ${error}`, "error");
@@ -81,9 +84,12 @@ const SettingsPage = () => {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
               Preferences
             </p>
-            <h2 className="text-2xl font-semibold text-base-content">{PAGE_TITLES.settings}</h2>
+            <h2 className="text-2xl font-semibold text-base-content">
+              {PAGE_TITLES.settings}
+            </h2>
             <p className="text-sm text-base-content/60">
-              Choose how display changes are applied and restored for this Windows account.
+              Choose how display changes are applied and restored for this
+              Windows account.
             </p>
           </div>
         </div>
@@ -99,15 +105,17 @@ const SettingsPage = () => {
               <div className="space-y-1">
                 <h3 className="card-title">Auto-Apply on Login</h3>
                 <p className="text-sm text-base-content/70">
-                  Automatically apply your saved display profile when this Windows account logs in.
-                  Useful for ASTER multi-seat setups.
+                  Automatically apply your saved display profile when this
+                  Windows account logs in. Useful for ASTER multi-seat setups.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
               <div>
-                <div className="text-sm font-medium">Run at Windows startup</div>
+                <div className="text-sm font-medium">
+                  Run at Windows startup
+                </div>
                 <div className="mt-0.5 text-xs text-base-content/60">
                   Adds an entry to the current user's `Run` registry key.
                 </div>
@@ -132,17 +140,21 @@ const SettingsPage = () => {
               <div className="space-y-1">
                 <h3 className="card-title">Persist to Registry</h3>
                 <p className="text-sm text-base-content/70">
-                  When applying settings, also write them to the Windows registry so they survive
-                  reboots. This mirrors the "Keep Changes" behavior in Windows Display Settings.
+                  When applying settings, also write them to the Windows
+                  registry so they survive reboots. This mirrors the "Keep
+                  Changes" behavior in Windows Display Settings.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
               <div>
-                <div className="text-sm font-medium">Persist mode by default</div>
+                <div className="text-sm font-medium">
+                  Persist mode by default
+                </div>
                 <div className="mt-0.5 text-xs text-base-content/60">
-                  Uses CDS_UPDATEREGISTRY | CDS_GLOBAL when applying monitor settings.
+                  Uses CDS_UPDATEREGISTRY | CDS_GLOBAL when applying monitor
+                  settings.
                 </div>
               </div>
               <input
@@ -164,16 +176,20 @@ const SettingsPage = () => {
               <div className="space-y-1">
                 <h3 className="card-title">Profile Auto-Save on Apply</h3>
                 <p className="text-sm text-base-content/70">
-                  Automatically save the applied display settings back to your user profile.
+                  Automatically save the applied display settings back to your
+                  user profile.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
               <div>
-                <div className="text-sm font-medium">Auto-save profile after applying</div>
+                <div className="text-sm font-medium">
+                  Auto-save profile after applying
+                </div>
                 <div className="mt-0.5 text-xs text-base-content/60">
-                  Keeps your current profile aligned with the latest monitor changes.
+                  Keeps your current profile aligned with the latest monitor
+                  changes.
                 </div>
               </div>
               <input
@@ -188,5 +204,5 @@ const SettingsPage = () => {
       </div>
     </div>
   );
-}
+};
 export default SettingsPage;
