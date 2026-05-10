@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useCallback } from "react";
 import { invoke } from "../api";
 
 import { useDisplayStore } from "../stores/useDisplayStore";
@@ -29,6 +29,16 @@ export function useMonitorActions() {
   const { profiles, refreshProfiles } = useProfileStore();
 
   const cardRefs = useRef({});
+
+  const [confirmState, setConfirmState] = useState({
+    visible: false,
+    message: "",
+    timeoutSecs: 10,
+  });
+
+  const dismissConfirmation = useCallback(() => {
+    setConfirmState({ visible: false, message: "", timeoutSecs: 10 });
+  }, []);
 
   const hasPendingLayoutChanges =
     Object.keys(pendingLayoutChanges ?? {}).length > 0;
@@ -86,16 +96,64 @@ export function useMonitorActions() {
     if (!entries.length) return;
 
     try {
+      await invoke("save_rollback_point");
+
       for (const [deviceName, pos] of entries) {
         await invoke("set_position", {
           deviceName,
           x: pos.x,
           y: pos.y,
         });
+
+        const selection = monitorSelections[deviceName];
+        if (selection) {
+          const display = displays.find((d) => d.device_name === deviceName);
+          if (!display) continue;
+
+          const [width, height] = selection.resolution.split("x").map(Number);
+          const refreshRate = Number(selection.refreshRate);
+          const orientation = selection.orientation;
+          const scale = Number(selection.scale);
+
+          await invoke("apply_settings", {
+            deviceName,
+            width,
+            height,
+            refreshRate,
+            persist: settings.persist,
+          });
+
+          if (display.orientation !== orientation) {
+            await invoke("set_orientation", { deviceName, orientation });
+          }
+
+          if ((display.scale_factor ?? 100) !== scale) {
+            await invoke("set_scale", {
+              deviceName,
+              scalePercent: scale,
+            });
+          }
+        }
       }
 
-      pushToast(`Applied ${entries.length} layout changes`, "success");
+      setConfirmState({
+        visible: true,
+        message: `Applied ${entries.length} layout change${entries.length > 1 ? 's' : ''}`,
+        timeoutSecs: 10,
+      });
+
       await refreshDisplays();
+
+      if (settings.autoSave) {
+        const assignments = buildFullAssignments();
+        if (Object.keys(assignments).length > 0) {
+          await invoke("save_user_profile", {
+            username: currentUser,
+            assignments,
+          });
+          await refreshProfiles();
+        }
+      }
     } catch (err) {
       pushToast(`Failed layout: ${err}`, "error");
     }
@@ -140,6 +198,47 @@ export function useMonitorActions() {
     updateMonitorSelection(deviceName, patch);
   };
 
+  const buildFullAssignments = () => {
+    const currentDisplays = useDisplayStore.getState().displays;
+    const selections = useDisplayStore.getState().monitorSelections ?? {};
+
+    const assignments = {};
+    for (const d of currentDisplays) {
+      if (!d.is_active) continue;
+
+      const sel = selections[d.device_name] ?? buildSelectionForDisplay(d);
+      const [width, height] = sel.resolution.split("x").map(Number);
+
+      const key = getDisplayKey(d.display_id);
+      assignments[key] = {
+        display_id: d.display_id,
+        mode: {
+          width,
+          height,
+          refresh_rate: Number(sel.refreshRate),
+          bits_per_pixel: d.current_mode?.bits_per_pixel ?? 32,
+        },
+        position_x: d.position_x,
+        position_y: d.position_y,
+        is_primary: d.is_primary,
+        orientation: sel.orientation,
+        scale_factor: Number(sel.scale),
+      };
+    }
+    return assignments;
+  };
+
+  const cancelMonitorChanges = (display) => {
+    const defaults = buildSelectionForDisplay(display);
+    updateMonitorSelection(display.device_name, {
+      resolution: defaults.resolution,
+      refreshRate: defaults.refreshRate,
+      orientation: defaults.orientation,
+      scale: defaults.scale,
+    });
+    pushToast("Changes reverted to current settings", "info");
+  };
+
   const applyMonitorSettings = async (display) => {
     const selection =
       monitorSelections[display.device_name] ??
@@ -150,9 +249,23 @@ export function useMonitorActions() {
     const orientation = selection.orientation;
     const scale = Number(selection.scale);
 
+    const pendingPos = pendingLayoutChanges[display.device_name];
+    const positionX = pendingPos?.x ?? display.position_x;
+    const positionY = pendingPos?.y ?? display.position_y;
+
     setBusy(display.device_name);
 
     try {
+      await invoke("save_rollback_point");
+
+      if (pendingPos) {
+        await invoke("set_position", {
+          deviceName: display.device_name,
+          x: positionX,
+          y: positionY,
+        });
+      }
+
       const result = await invoke("apply_settings", {
         deviceName: display.device_name,
         width,
@@ -160,10 +273,6 @@ export function useMonitorActions() {
         refreshRate,
         persist: settings.persist,
       });
-
-      if (result?.success) {
-        pushToast(result.message, "success");
-      }
 
       if (display.orientation !== orientation) {
         await invoke("set_orientation", {
@@ -181,35 +290,29 @@ export function useMonitorActions() {
 
       await refreshDisplays();
 
-      if (settings.autoSave) {
-        const key = getDisplayKey(display.display_id);
-
-        const existing = profiles.users[currentUser]?.assignments ?? {};
-
-        await invoke("save_user_profile", {
-          username: currentUser,
-          assignments: {
-            ...existing,
-            [key]: {
-              display_id: display.display_id,
-              mode: {
-                width,
-                height,
-                refresh_rate: refreshRate,
-                bits_per_pixel: display.current_mode?.bits_per_pixel ?? 32,
-              },
-              position_x: display.position_x,
-              position_y: display.position_y,
-              is_primary: display.is_primary,
-              orientation,
-              scale_factor: scale,
-            },
-          },
+      if (pendingPos) {
+        useDisplayStore.setState((state) => {
+          const next = { ...state.pendingLayoutChanges };
+          delete next[display.device_name];
+          return { pendingLayoutChanges: next };
         });
+      }
 
-        await refreshProfiles();
+      setConfirmState({
+        visible: true,
+        message: `Settings applied to ${display.device_string || display.device_name}`,
+        timeoutSecs: 10,
+      });
 
-        pushToast("Saved to profile", "info");
+      if (settings.autoSave) {
+        const assignments = buildFullAssignments();
+        if (Object.keys(assignments).length > 0) {
+          await invoke("save_user_profile", {
+            username: currentUser,
+            assignments,
+          });
+          await refreshProfiles();
+        }
       }
     } catch (err) {
       pushToast(`Error: ${err}`, "error");
@@ -218,15 +321,59 @@ export function useMonitorActions() {
     }
   };
 
-  const toggleMonitor = async (display) => {
+  const confirmLayoutChange = useCallback(async () => {
     try {
-      await invoke("toggle_monitor_state", {
+      await invoke("confirm_layout");
+      pushToast("Layout change confirmed", "success");
+      dismissConfirmation();
+      await refreshDisplays();
+    } catch (err) {
+      pushToast(`Confirm failed: ${err}`, "error");
+    }
+  }, [pushToast, dismissConfirmation, refreshDisplays]);
+
+  const rollbackLayoutChange = useCallback(async () => {
+    try {
+      await invoke("rollback_layout");
+      pushToast("Layout reverted to previous state", "info");
+      dismissConfirmation();
+      await refreshDisplays();
+    } catch (err) {
+      pushToast(`Rollback failed: ${err}`, "error");
+      dismissConfirmation();
+      await refreshDisplays();
+    }
+  }, [pushToast, dismissConfirmation, refreshDisplays]);
+
+  const toggleMonitor = async (display) => {
+    const enabling = !display.is_active;
+    try {
+      const result = await invoke("toggle_monitor_state", {
         deviceName: display.device_name,
-        enabled: !display.is_active,
+        enabled: enabling,
       });
 
-      pushToast("Monitor toggled", "success");
-      await refreshDisplays();
+      if (result?.success) {
+        setConfirmState({
+          visible: true,
+          message: result.message || (enabling ? "Monitor reconnected" : "Monitor disconnected"),
+          timeoutSecs: 10,
+        });
+        await refreshDisplays();
+
+        if (settings.autoSave) {
+          const assignments = buildFullAssignments();
+          if (Object.keys(assignments).length > 0) {
+            await invoke("save_user_profile", {
+              username: currentUser,
+              assignments,
+            });
+            await refreshProfiles();
+          }
+        }
+      } else {
+        pushToast(result?.message || "Toggle failed", "error");
+      }
     } catch (err) {
       pushToast(`Toggle failed: ${err}`, "error");
     }
@@ -284,7 +431,11 @@ export function useMonitorActions() {
     applyMonitorSettings,
     toggleMonitor,
     makePrimary,
+    cancelMonitorChanges,
     applyCurrentUserProfile,
     refreshDisplays,
+    confirmState,
+    confirmLayoutChange,
+    rollbackLayoutChange,
   };
 }

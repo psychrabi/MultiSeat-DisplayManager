@@ -67,9 +67,6 @@ const ProfilesPage = () => {
       <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm mb-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
-              Administration
-            </p>
             <h2 className="text-2xl font-semibold text-base-content">
               {PAGE_TITLES.profiles}
             </h2>
@@ -89,7 +86,7 @@ const ProfilesPage = () => {
 
       <div className="flex-1 overflow-auto">
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6 h-full items-start">
-          <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
+          <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-70 overflow-hidden">
             <div className="px-5 py-3.5 border-b border-base-300 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">
                 Users
@@ -117,16 +114,16 @@ const ProfilesPage = () => {
 
                     return (
                       <li key={username}>
-                        <div
-                          className={`flex items-center gap-3 p-3.5 transition-colors cursor-pointer ${
-                            selectedProfileUser === username
-                              ? "bg-primary/10 hover:bg-primary/15"
-                              : "hover:bg-base-300/50"
-                          }`}
-                          onClick={() => setSelectedProfileUser(username)}
-                        >
                           <div
-                            className={`w-9 h-9 rounded-xl flex-shrink-0 grid place-items-center text-xs font-bold text-black shadow-sm ${
+                            className={`group flex items-center gap-3 p-3.5 transition-colors cursor-pointer ${
+                              selectedProfileUser === username
+                                ? "bg-primary/10 hover:bg-primary/15"
+                                : "hover:bg-base-300/50"
+                            }`}
+                            onClick={() => setSelectedProfileUser(username)}
+                          >
+                          <div
+                            className={`w-9 h-9 rounded-xl shrink-0 grid place-items-center text-xs font-bold text-black shadow-sm ${
                               AVATAR_COLORS[index % AVATAR_COLORS.length]
                             }`}
                           >
@@ -175,7 +172,7 @@ const ProfilesPage = () => {
             </div>
           </div>
 
-          <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-[420px] overflow-hidden">
+          <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-105 overflow-hidden">
             {!selectedProfileUser || !selectedProfile ? (
               <EmptyProfileState />
             ) : (

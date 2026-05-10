@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Check, Monitor, Power, PowerCircle, Star } from "lucide-react";
+import { Check, Monitor, Power, PowerCircle, Star, X } from "lucide-react";
 import {
   formatPosition,
   getDisplayDimensions,
@@ -17,6 +17,7 @@ const MonitorSettingsPanel = memo((props) => {
     onResolutionChange,
     onSelectionChange,
     onApply,
+    onCancel,
     onToggleMonitor,
     onMakePrimary,
   } = props;
@@ -55,6 +56,15 @@ const MonitorSettingsPanel = memo((props) => {
     ? selection.refreshRate
     : String(refreshRateOptions[0] ?? currentMode?.refresh_rate ?? 60);
 
+  const currentResolution = currentMode
+    ? `${currentMode.width}x${currentMode.height}`
+    : "";
+  const hasChanges =
+    selection.resolution !== currentResolution ||
+    Number(selection.refreshRate) !== (currentMode?.refresh_rate ?? 0) ||
+    selection.orientation !== display.orientation ||
+    Number(selection.scale) !== (display.scale_factor ?? 100);
+
   return (
     <div className="card bg-base-200 border border-base-300 shadow-xl w-full">
       <div className="card-body p-6">
@@ -72,6 +82,10 @@ const MonitorSettingsPanel = memo((props) => {
               {display.is_active ? (
                 <span className="badge badge-success badge-outline font-mono text-[10px]">
                   ACTIVE
+                </span>
+              ) : display.not_detected ? (
+                <span className="badge badge-error badge-outline font-mono text-[10px]">
+                  NOT DETECTED
                 </span>
               ) : (
                 <span className="badge badge-ghost font-mono text-[10px]">
@@ -106,7 +120,7 @@ const MonitorSettingsPanel = memo((props) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-4">
           <div className="form-control w-full">
             <label className="label py-1">
               <span className="label-text text-xs font-semibold text-base-content/70">
@@ -136,7 +150,7 @@ const MonitorSettingsPanel = memo((props) => {
               </span>
             </label>
             <select
-              className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
+              className="select"
               disabled={!display.is_active}
               value={refreshValue}
               onChange={(event) =>
@@ -208,7 +222,7 @@ const MonitorSettingsPanel = memo((props) => {
               <button
                 className="btn btn-primary flex-1 shadow-md hover:shadow-lg shadow-primary/20"
                 type="button"
-                disabled={busy}
+                disabled={!hasChanges || busy}
                 onClick={() => onApply(display)}
               >
                 {busy ? (
@@ -218,6 +232,17 @@ const MonitorSettingsPanel = memo((props) => {
                 )}
                 Apply
               </button>
+
+              {hasChanges && (
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => onCancel(display)}
+                >
+                  <X className="size-4" />
+                  Cancel
+                </button>
+              )}
 
               <button
                 className="btn btn-error btn-outline hover:bg-error/10"

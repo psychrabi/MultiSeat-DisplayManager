@@ -81,9 +81,6 @@ const SettingsPage = () => {
             <Settings2 className="size-6 text-base-content/60" />
           </div>
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
-              Preferences
-            </p>
             <h2 className="text-2xl font-semibold text-base-content">
               {PAGE_TITLES.settings}
             </h2>

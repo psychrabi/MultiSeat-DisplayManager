@@ -18,7 +18,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="toast toast-end toast-bottom z-[1000] pointer-events-none">
+    <div className="toast toast-end toast-bottom z-1000 pointer-events-none">
       {toasts.map((t) => {
         const alertType =
           t.type === "error"

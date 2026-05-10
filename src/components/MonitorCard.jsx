@@ -32,7 +32,7 @@ const MonitorCard = memo((props) => {
         highlighted
           ? "border-primary shadow-xl shadow-primary/20 ring-2 ring-primary/30 scale-[1.02]"
           : "border-base-300 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5"
-      } ${!display.is_active && !highlighted ? "opacity-50 grayscale hover:opacity-80 hover:grayscale-[50%]" : ""}`}
+      } ${!display.is_active && !highlighted ? "opacity-50 grayscale hover:opacity-80 hover:grayscale-50" : ""}`}
       id={`card-${display.index}`}
       ref={(node) => registerCardRef(display.device_name, node)}
       onClick={() => onSelectMonitor(display.device_name)}
@@ -51,11 +51,19 @@ const MonitorCard = memo((props) => {
                   PRIMARY
                 </span>
               )}
-              <span
-                className={`badge font-mono text-[10px] px-2 py-0.5 ${display.is_active ? "badge-success badge-outline" : "badge-ghost opacity-60"}`}
-              >
-                {display.is_active ? "ACTIVE" : "INACTIVE"}
-              </span>
+              {display.is_active ? (
+                <span className="badge badge-success badge-outline font-mono text-[10px] px-2 py-0.5">
+                  ACTIVE
+                </span>
+              ) : display.not_detected ? (
+                <span className="badge badge-error badge-outline font-mono text-[10px] px-2 py-0.5">
+                  NOT DETECTED
+                </span>
+              ) : (
+                <span className="badge badge-ghost opacity-60 font-mono text-[10px] px-2 py-0.5">
+                  INACTIVE
+                </span>
+              )}
             </div>
             <div className="font-semibold text-[15px] mb-0.5 text-base-content truncate">
               {monitorName}

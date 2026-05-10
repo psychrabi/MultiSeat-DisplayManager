@@ -1,11 +1,12 @@
 import LayoutPreview from "../components/LayoutPreview";
 import MonitorSettingsPanel from "../components/MonitorSettings";
+import { ConfirmationDialog } from "../components/ConfirmationDialog";
 
 import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 
 import { useDisplayStore } from "../stores/useDisplayStore";
 import { useMonitorActions } from "../hooks/useMonitorActions";
-import { Check, CheckSquare, RefreshCcw, X } from "lucide-react";
+import { Check, CheckSquare, MonitorOff, RefreshCcw, X } from "lucide-react";
 
 export default function Monitors() {
   // ===== STORE STATE =====
@@ -28,7 +29,11 @@ export default function Monitors() {
     applyMonitorSettings,
     toggleMonitor,
     makePrimary,
+    cancelMonitorChanges,
     hasPendingLayoutChanges,
+    confirmState,
+    confirmLayoutChange,
+    rollbackLayoutChange,
   } = useMonitorActions();
   // ===== DERIVED =====
   const selectedDisplay =
@@ -47,9 +52,6 @@ export default function Monitors() {
       <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
-              Control Center
-            </p>
             <h2 className="text-2xl font-semibold text-base-content">
               {PAGE_TITLES.monitors}
             </h2>
@@ -80,10 +82,8 @@ export default function Monitors() {
         <section className="space-y-4">
           <div className="flex items-center justify-between border-b border-base-300 pb-2">
             <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-base-content/50">
-                Current layout
-              </div>
-              <p className="mt-1 text-sm text-base-content/60">
+              <div className="font-bold uppercase">Current layout</div>
+              <p className="mt-1 text-sm text-base-content/70">
                 Drag active monitors to preview new positions before applying
                 them.
               </p>
@@ -99,13 +99,18 @@ export default function Monitors() {
           />
 
           {hasPendingLayoutChanges && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button className="btn btn-ghost" onClick={cancelLayoutChanges}>
+            <div className="flex flex-wrap items-center gap-2 animate-fade-in">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={cancelLayoutChanges}
+              >
                 <X className="size-4" />
                 Cancel
               </button>
-
-              <button className="btn btn-primary" onClick={applyLayoutChanges}>
+              <button
+                className="btn btn-primary btn-sm shadow-md shadow-primary/20"
+                onClick={applyLayoutChanges}
+              >
                 <Check className="size-4" />
                 Apply Layout Changes
               </button>
@@ -114,7 +119,7 @@ export default function Monitors() {
         </section>
 
         {loadingDisplays ? (
-          <section className="card border border-base-300 bg-base-200 shadow-sm">
+          <section className="card border border-base-300 bg-base-200 shadow-sm animate-pulse">
             <div className="card-body items-center justify-center gap-4 py-12 text-center">
               <span className="loading loading-spinner loading-lg text-primary"></span>
               <div>
@@ -128,14 +133,26 @@ export default function Monitors() {
             </div>
           </section>
         ) : displays.length === 0 ? (
-          <section className="card border border-dashed border-base-300 bg-base-200/60 shadow-sm">
-            <div className="card-body items-center justify-center gap-3 py-12 text-center">
-              <h3 className="font-semibold text-base-content">
-                No monitors detected
-              </h3>
-              <p className="max-w-sm text-sm text-base-content/60">
-                Connect a display or refresh the device list to try again.
-              </p>
+          <section className="card border-2 border-dashed border-base-300 bg-base-200/60 shadow-sm">
+            <div className="card-body items-center justify-center gap-4 py-12 text-center">
+              <div className="rounded-full bg-base-300 p-4 text-base-content/40">
+                <MonitorOff className="size-10" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base-content text-lg">
+                  No monitors detected
+                </h3>
+                <p className="text-sm text-base-content/60 max-w-xs mx-auto">
+                  Connect a display or refresh the device list to try again.
+                </p>
+              </div>
+              <button
+                className="btn btn-primary btn-sm mt-2 shadow-md"
+                onClick={refreshDisplays}
+              >
+                <RefreshCcw className="size-4" />
+                Refresh
+              </button>
             </div>
           </section>
         ) : (
@@ -157,12 +174,21 @@ export default function Monitors() {
               onResolutionChange={resolutionChange}
               onSelectionChange={selectionChange}
               onApply={applyMonitorSettings}
+              onCancel={cancelMonitorChanges}
               onToggleMonitor={toggleMonitor}
               onMakePrimary={makePrimary}
             />
           </section>
         )}
       </div>
+
+      <ConfirmationDialog
+        visible={confirmState.visible}
+        message={confirmState.message}
+        timeoutSecs={confirmState.timeoutSecs}
+        onConfirm={confirmLayoutChange}
+        onRollback={rollbackLayoutChange}
+      />
     </div>
   );
 }

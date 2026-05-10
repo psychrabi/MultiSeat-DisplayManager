@@ -161,83 +161,88 @@ export function snapLayoutPosition(
     return { x: proposedX, y: proposedY };
   }
 
-  const SNAP_THRESHOLD = 50;
+  const ALIGN_THRESHOLD = 50;
   let bestPos = { x: proposedX, y: proposedY };
   let minDistance = Infinity;
 
-  const magnet = (val, target) =>
-    Math.abs(val - target) <= SNAP_THRESHOLD ? target : val;
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
   activeDisplays.forEach((display) => {
     const otherDims = getDisplayDimensions(display);
 
-    // 1. Snapping to the Right edge of `display`
-    let rightEdgeX = display.position_x + otherDims.width;
-    let rightEdgeY = proposedY;
-    rightEdgeY = magnet(rightEdgeY, display.position_y); // align top
-    rightEdgeY = magnet(
-      rightEdgeY,
-      display.position_y + otherDims.height - targetDimensions.height,
-    ); // align bottom
-    rightEdgeY = magnet(
-      rightEdgeY,
-      Math.round(
-        display.position_y + (otherDims.height - targetDimensions.height) / 2,
-      ),
-    ); // align center
     const yMin = display.position_y - targetDimensions.height + 1;
     const yMax = display.position_y + otherDims.height - 1;
-    rightEdgeY = Math.max(yMin, Math.min(yMax, rightEdgeY));
-
-    // 2. Snapping to the Left edge of `display`
-    let leftEdgeX = display.position_x - targetDimensions.width;
-    let leftEdgeY = proposedY;
-    leftEdgeY = magnet(leftEdgeY, display.position_y);
-    leftEdgeY = magnet(
-      leftEdgeY,
-      display.position_y + otherDims.height - targetDimensions.height,
-    );
-    leftEdgeY = magnet(
-      leftEdgeY,
-      Math.round(
-        display.position_y + (otherDims.height - targetDimensions.height) / 2,
-      ),
-    );
-    leftEdgeY = Math.max(yMin, Math.min(yMax, leftEdgeY));
-
-    // 3. Snapping to the Bottom edge of `display`
-    let bottomEdgeY = display.position_y + otherDims.height;
-    let bottomEdgeX = proposedX;
-    bottomEdgeX = magnet(bottomEdgeX, display.position_x); // align left
-    bottomEdgeX = magnet(
-      bottomEdgeX,
-      display.position_x + otherDims.width - targetDimensions.width,
-    ); // align right
-    bottomEdgeX = magnet(
-      bottomEdgeX,
-      Math.round(
-        display.position_x + (otherDims.width - targetDimensions.width) / 2,
-      ),
-    ); // align center
     const xMin = display.position_x - targetDimensions.width + 1;
     const xMax = display.position_x + otherDims.width - 1;
-    bottomEdgeX = Math.max(xMin, Math.min(xMax, bottomEdgeX));
 
-    // 4. Snapping to the Top edge of `display`
-    let topEdgeY = display.position_y - targetDimensions.height;
-    let topEdgeX = proposedX;
-    topEdgeX = magnet(topEdgeX, display.position_x);
-    topEdgeX = magnet(
-      topEdgeX,
-      display.position_x + otherDims.width - targetDimensions.width,
+    const pickAlignment = (value, alignments) => {
+      let best = value;
+      let closest = Infinity;
+      alignments.forEach((a) => {
+        const dist = Math.abs(value - a);
+        if (dist < closest) {
+          closest = dist;
+          best = dist <= ALIGN_THRESHOLD ? a : value;
+        }
+      });
+      return best;
+    };
+
+    // Right edge snap (target left = other right)
+    const rightEdgeX = display.position_x + otherDims.width;
+    const rightEdgeY = clamp(
+      pickAlignment(proposedY, [
+        display.position_y,
+        display.position_y + otherDims.height - targetDimensions.height,
+        Math.round(
+          display.position_y + (otherDims.height - targetDimensions.height) / 2,
+        ),
+      ]),
+      yMin,
+      yMax,
     );
-    topEdgeX = magnet(
-      topEdgeX,
-      Math.round(
-        display.position_x + (otherDims.width - targetDimensions.width) / 2,
-      ),
+
+    // Left edge snap (target right = other left)
+    const leftEdgeX = display.position_x - targetDimensions.width;
+    const leftEdgeY = clamp(
+      pickAlignment(proposedY, [
+        display.position_y,
+        display.position_y + otherDims.height - targetDimensions.height,
+        Math.round(
+          display.position_y + (otherDims.height - targetDimensions.height) / 2,
+        ),
+      ]),
+      yMin,
+      yMax,
     );
-    topEdgeX = Math.max(xMin, Math.min(xMax, topEdgeX));
+
+    // Bottom edge snap (target top = other bottom)
+    const bottomEdgeY = display.position_y + otherDims.height;
+    const bottomEdgeX = clamp(
+      pickAlignment(proposedX, [
+        display.position_x,
+        display.position_x + otherDims.width - targetDimensions.width,
+        Math.round(
+          display.position_x + (otherDims.width - targetDimensions.width) / 2,
+        ),
+      ]),
+      xMin,
+      xMax,
+    );
+
+    // Top edge snap (target bottom = other top)
+    const topEdgeY = display.position_y - targetDimensions.height;
+    const topEdgeX = clamp(
+      pickAlignment(proposedX, [
+        display.position_x,
+        display.position_x + otherDims.width - targetDimensions.width,
+        Math.round(
+          display.position_x + (otherDims.width - targetDimensions.width) / 2,
+        ),
+      ]),
+      xMin,
+      xMax,
+    );
 
     const candidates = [
       { x: rightEdgeX, y: rightEdgeY },

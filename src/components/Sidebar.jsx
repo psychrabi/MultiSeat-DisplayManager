@@ -1,4 +1,4 @@
-import { LayoutGrid, Monitor, Settings, Users } from "lucide-react";
+import { Monitor, Settings, Users } from "lucide-react";
 import { NavLink } from "react-router";
 import logoUrl from "../../src-tauri/icons/128x128.png";
 import { useAppStore } from "../stores/useAppStore";
@@ -10,35 +10,23 @@ const navItems = [
 ];
 
 export function Sidebar({ onNavigate }) {
-  const currentUser = useAppStore((s) => s.currentUser);
+  const collapsed = useAppStore((s) => s.sidebarCollapsed);
 
   return (
-    <div className="flex min-h-full flex-col">
-      <div className="border-b border-base-300 bg-base-300/50">
-        <div className="flex items-center gap-4 px-5 py-5">
-          <div className="h-10 w-10 shrink-0 rounded-xl bg-base-100 p-1 shadow-sm">
-            <img src={logoUrl} alt="ASTER Logo" className="h-full w-full" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-base-content/50">
-              Control Panel
-            </p>
-            <h2 className="truncate text-lg font-semibold text-base-content">
-              Display Manager
-            </h2>
-            <p className="truncate text-sm text-base-content/60 flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-success" />
-              {currentUser || "Windows session"}
-            </p>
-          </div>
-        </div>
+    <aside className="min-h-screen flex flex-col bg-base-100 w-full">
+      <div className="flex items-center gap-2 overflow-hidden p-3 border-b border-base-content/40">
+        <img src={logoUrl} alt="ASTER Logo" className="size-8 shrink-0" />
+        <h1
+          className={`font-semibold whitespace-nowrap transition-opacity duration-300 ease-out ${
+            collapsed ? "opacity-0 w-0" : "opacity-100"
+          }`}
+        >
+          MultiSeat Display Manager
+        </h1>
       </div>
-      <div className="px-3 py-4 flex-1">
-        <div className="mb-3 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-[0.25em] text-base-content/40">
-          <LayoutGrid className="size-4" />
-          Workspace
-        </div>
-        <ul className="menu gap-1.5 p-0">
+
+      <div className="flex-1 h-full">
+        <ul className="menu rounded-box w-full gap-2 p-2">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink
@@ -48,23 +36,33 @@ export function Sidebar({ onNavigate }) {
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-xl px-3 py-3 transition-all duration-200 ${
                     isActive
-                      ? "bg-primary text-primary-content shadow-md shadow-primary/30 font-medium"
+                      ? "menu-active "
                       : "text-base-content/70 hover:bg-base-300/80 hover:text-base-content"
                   }`
                 }
               >
                 <Icon className="size-5 shrink-0" />
-                <span>{label}</span>
+                <span
+                  className={`transition-opacity duration-300 ease-out ${
+                    collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+                  }`}
+                >
+                  {label}
+                </span>
               </NavLink>
             </li>
           ))}
         </ul>
       </div>
-      <div className="px-4 py-3 border-t border-base-300">
-        <p className="text-[10px] font-mono text-base-content/30 text-center">
-          ASTER Display Manager v1.0
+      <div
+        className={`px-4 py-3 border-t border-base-300 transition-all duration-300 ease-out ${
+          collapsed ? "opacity-0 overflow-hidden h-0 py-0" : "opacity-100"
+        }`}
+      >
+        <p className="text-sm text-base-content/80 text-center whitespace-nowrap">
+          MultiSeat Display Manager v1.0
         </p>
       </div>
-    </div>
+    </aside>
   );
 }

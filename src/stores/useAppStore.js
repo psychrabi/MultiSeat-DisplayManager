@@ -4,6 +4,10 @@ export const useAppStore = create((set) => ({
   currentUser: "",
   setCurrentUser: (user) => set({ currentUser: user }),
 
+  sidebarCollapsed: false,
+  toggleSidebar: () =>
+    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
   settings: { persist: true, autoSave: true },
   updateSettings: (patch) =>
     set((state) => ({ settings: { ...state.settings, ...patch } })),

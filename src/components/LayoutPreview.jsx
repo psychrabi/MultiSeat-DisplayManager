@@ -1,6 +1,48 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { getDisplayDimensions, snapLayoutPosition } from "../js/utils";
 import { Star } from "lucide-react";
+
+const SNAP_THRESHOLD = 50;
+
+function computeSnapGuides(dragData, displays) {
+  const { display: target, x: proposedX, y: proposedY } = dragData;
+  const targetDims = getDisplayDimensions(target);
+  const guides = { v: [], h: [] };
+
+  const activeDisplays = displays.filter(
+    (d) => d.device_name !== target.device_name && d.is_active,
+  );
+
+  activeDisplays.forEach((other) => {
+    const otherDims = getDisplayDimensions(other);
+
+    const isNear = (a, b) => Math.abs(a - b) <= SNAP_THRESHOLD;
+
+    // Vertical guides (left/right edges of target vs left/right edges of other)
+    const targetL = proposedX;
+    const targetR = proposedX + targetDims.width;
+    const otherL = other.position_x;
+    const otherR = other.position_x + otherDims.width;
+
+    if (isNear(targetL, otherR)) guides.v.push(otherR);
+    if (isNear(targetR, otherL)) guides.v.push(otherL);
+    if (isNear(targetL, otherL)) guides.v.push(otherL);
+    if (isNear(targetR, otherR)) guides.v.push(otherR);
+
+    // Horizontal guides (top/bottom edges of target vs top/bottom edges of other)
+    const targetT = proposedY;
+    const targetB = proposedY + targetDims.height;
+    const otherT = other.position_y;
+    const otherB = other.position_y + otherDims.height;
+
+    if (isNear(targetT, otherB)) guides.h.push(otherB);
+    if (isNear(targetB, otherT)) guides.h.push(otherT);
+    if (isNear(targetT, otherT)) guides.h.push(otherT);
+    if (isNear(targetB, otherB)) guides.h.push(otherB);
+  });
+
+  return guides;
+}
 
 const LayoutPreview = memo(
   ({
@@ -15,6 +57,7 @@ const LayoutPreview = memo(
     const suppressClickRef = useRef(false);
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [dragPreview, setDragPreview] = useState(null);
+    const [snapGuides, setSnapGuides] = useState({ v: [], h: [] });
 
     useEffect(() => {
       const node = innerRef.current;
@@ -59,6 +102,13 @@ const LayoutPreview = memo(
           x: nextX,
           y: nextY,
         });
+
+        setSnapGuides(
+          computeSnapGuides(
+            { display: drag.display, x: nextX, y: nextY },
+            displays,
+          ),
+        );
       };
 
       const handleMouseUp = (event) => {
@@ -93,6 +143,7 @@ const LayoutPreview = memo(
 
         dragRef.current = null;
         setDragPreview(null);
+        setSnapGuides({ v: [], h: [] });
       };
 
       window.addEventListener("mousemove", handleMouseMove);
@@ -108,7 +159,7 @@ const LayoutPreview = memo(
       return (
         <div
           ref={innerRef}
-          className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-[280px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+          className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-70 relative overflow-hidden flex items-center justify-center shadow-inner"
         />
       );
     }
@@ -117,7 +168,7 @@ const LayoutPreview = memo(
       return (
         <div
           ref={innerRef}
-          className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-[280px] mb-6 relative overflow-hidden flex items-center justify-center shadow-inner"
+          className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-70 relative overflow-hidden flex items-center justify-center shadow-inner"
         >
           <div className="text-base-content/50 text-sm">
             No monitors detected.
@@ -226,10 +277,42 @@ const LayoutPreview = memo(
     return (
       <div
         ref={innerRef}
-        className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-[280px] mb-6 relative overflow-hidden shadow-inner"
+        className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-100 relative overflow-hidden shadow-inner"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:20px_20px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[20px_20px] pointer-events-none" />
         <div className="relative w-full h-full">
+          {/* Snap guide lines */}
+          {snapGuides.v.map((x, i) => {
+            const guideLeft = startX + (x - minX) * scale;
+            return (
+              <div
+                key={`vg-${i}`}
+                className="absolute  top-0 bottom-0 w-0.5 z-50 pointer-events-none"
+                style={{
+                  left: `${guideLeft}px`,
+                  background:
+                    "repeating-linear-gradient(to bottom, oklch(var(--a)), oklch(var(--a)) 4px, transparent 4px, transparent 8px)",
+                  opacity: 0.7,
+                }}
+              />
+            );
+          })}
+          {snapGuides.h.map((y, i) => {
+            const guideTop = startY + (y - minY) * scale;
+            return (
+              <div
+                key={`hg-${i}`}
+                className="absolute left-0 right-0 h-0.5 z-50 pointer-events-none"
+                style={{
+                  top: `${guideTop}px`,
+                  background:
+                    "repeating-linear-gradient(to right, oklch(var(--a)), oklch(var(--a)) 4px, transparent 4px, transparent 8px)",
+                  opacity: 0.7,
+                }}
+              />
+            );
+          })}
+
           {displayPositions.map((display) => {
             const dimensions = getDisplayDimensions(
               display,
@@ -246,20 +329,18 @@ const LayoutPreview = memo(
             return (
               <div
                 key={display.device_name}
-                className={`absolute flex flex-col items-center justify-center text-base-content/60 select-none cursor-grab active:cursor-grabbing rounded-xl transition-all duration-150 ${
+                className={`absolute border-2 flex flex-col items-center justify-center text-base-content select-none rounded-xl transition-[left,top,width,height,box-shadow,opacity,border-color,transform] duration-150 ease-out ${
                   isHighlighted
                     ? "border-accent z-30 shadow-lg shadow-accent/20 ring-2 ring-accent/40"
                     : display.is_primary
                       ? "border-primary/40 z-10"
-                      : "border-base-content/20 z-10 hover:border-accent/50 hover:z-20"
-                } ${display.is_primary ? "bg-primary/5" : "bg-base-100"} ${
+                      : "border-base-content/20  z-10 hover:border-accent/50 hover:z-20"
+                } ${display.is_primary ? "bg-primary/10" : "bg-base-200"} ${
                   !display.is_active
-                    ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20 hover:scale-100 !active:cursor-default"
-                    : ""
-                } ${
-                  isDragging
-                    ? "opacity-80 z-[100] border-accent shadow-xl shadow-accent/30 scale-105"
-                    : ""
+                    ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20"
+                    : isDragging
+                      ? "cursor-grabbing z-100 border-accent shadow-xl shadow-accent/30"
+                      : "cursor-grab hover:cursor-grab"
                 }`}
                 data-device={display.device_name}
                 onMouseDown={(event) => {
@@ -304,7 +385,7 @@ const LayoutPreview = memo(
                 </div>
                 {!display.is_active && (
                   <div className="text-[8px] font-bold tracking-widest opacity-50 mt-1 uppercase text-error">
-                    Disconnected
+                    {display.not_detected ? "NOT DETECTED" : "Disconnected"}
                   </div>
                 )}
                 {display.is_primary && (
