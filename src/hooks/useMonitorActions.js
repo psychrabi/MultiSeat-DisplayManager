@@ -200,29 +200,20 @@ export function useMonitorActions() {
 
   const buildFullAssignments = () => {
     const currentDisplays = useDisplayStore.getState().displays;
-    const selections = useDisplayStore.getState().monitorSelections ?? {};
 
     const assignments = {};
     for (const d of currentDisplays) {
-      if (!d.is_active) continue;
-
-      const sel = selections[d.device_name] ?? buildSelectionForDisplay(d);
-      const [width, height] = sel.resolution.split("x").map(Number);
+      if (!d.is_active || !d.current_mode) continue;
 
       const key = getDisplayKey(d.display_id);
       assignments[key] = {
         display_id: d.display_id,
-        mode: {
-          width,
-          height,
-          refresh_rate: Number(sel.refreshRate),
-          bits_per_pixel: d.current_mode?.bits_per_pixel ?? 32,
-        },
+        mode: { ...d.current_mode },
         position_x: d.position_x,
         position_y: d.position_y,
         is_primary: d.is_primary,
-        orientation: sel.orientation,
-        scale_factor: Number(sel.scale),
+        orientation: d.orientation,
+        scale_factor: d.scale_factor,
       };
     }
     return assignments;

@@ -114,14 +114,14 @@ const ProfilesPage = () => {
 
                     return (
                       <li key={username}>
-                          <div
-                            className={`group flex items-center gap-3 p-3.5 transition-colors cursor-pointer ${
-                              selectedProfileUser === username
-                                ? "bg-primary/10 hover:bg-primary/15"
-                                : "hover:bg-base-300/50"
-                            }`}
-                            onClick={() => setSelectedProfileUser(username)}
-                          >
+                        <div
+                          className={`group flex items-center gap-3 p-3.5 transition-colors cursor-pointer ${
+                            selectedProfileUser === username
+                              ? "bg-primary/10 hover:bg-primary/15"
+                              : "hover:bg-base-300/50"
+                          }`}
+                          onClick={() => setSelectedProfileUser(username)}
+                        >
                           <div
                             className={`w-9 h-9 rounded-xl shrink-0 grid place-items-center text-xs font-bold text-black shadow-sm ${
                               AVATAR_COLORS[index % AVATAR_COLORS.length]
@@ -227,7 +227,8 @@ const ProfilesPage = () => {
                                   {getAssignmentMonitorName(key, assignment)}
                                 </div>
                                 <div className="text-sm font-semibold text-primary">
-                                  {width}x{height}
+                                  {width}x{height} @{" "}
+                                  {assignment.mode.refresh_rate}Hz
                                 </div>
                                 <div className="text-[10px] font-mono text-base-content/40 mt-0.5">
                                   {assignment.orientation ?? "landscape"}{" "}
