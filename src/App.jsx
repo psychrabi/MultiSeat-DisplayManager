@@ -9,7 +9,7 @@ function App() {
   useInitApp();
 
   return (
-    <div className="flex h-screen bg-base-200" data-theme="light">
+    <div className="flex h-screen bg-base-200">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-y-auto bg-base-100">

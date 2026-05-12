@@ -33,7 +33,7 @@ export function Sidebar({ onNavigate }) {
                 className={({ isActive }) =>
                   `flex items-center gap-3  px-3 py-3 transition-all duration-200 ${
                     isActive
-                      ? "bg-primary text-base-100"
+                      ? "bg-primary text-primary-content"
                       : "text-base-content/70 hover:bg-base-300/80 hover:text-base-content"
                   }`
                 }

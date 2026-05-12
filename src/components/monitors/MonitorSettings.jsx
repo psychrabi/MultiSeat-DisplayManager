@@ -1,5 +1,20 @@
-import { memo } from "react";
-import { Check, Monitor, Power, PowerCircle, Star, X } from "lucide-react";
+import { memo, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Check,
+  Link,
+  Monitor,
+  MonitorDot,
+  MonitorOff,
+  Power,
+  PowerCircle,
+  Star,
+  StarIcon,
+  Unlink,
+  X,
+} from "lucide-react";
 import {
   formatPosition,
   getDisplayDimensions,
@@ -8,6 +23,18 @@ import {
   ORIENTATION_OPTIONS,
   SCALE_OPTIONS,
 } from "../../js/utils";
+
+const orientationValues = ORIENTATION_OPTIONS.map((o) => o.value);
+
+const monitorSettingsSchema = z.object({
+  resolution: z.string().min(1, "Select a resolution"),
+  refreshRate: z.string().min(1, "Select a refresh rate"),
+  orientation: z.enum(
+    orientationValues.length > 0 ? orientationValues : ["landscape"],
+    { errorMap: () => ({ message: "Invalid orientation" }) },
+  ),
+  scale: z.string().min(1, "Select scale"),
+});
 
 const BADGE_CLS = "badge font-mono text-[10px]";
 
@@ -23,6 +50,36 @@ const MonitorSettingsPanel = memo((props) => {
     onToggleMonitor,
     onMakePrimary,
   } = props;
+
+  const {
+    register,
+    watch,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    getValues,
+  } = useForm({
+    resolver: zodResolver(monitorSettingsSchema),
+    defaultValues: {
+      resolution: "",
+      refreshRate: "",
+      orientation: "",
+      scale: "",
+    },
+  });
+
+  useEffect(() => {
+    if (display && selection) {
+      reset({
+        resolution: selection.resolution ?? "",
+        refreshRate: selection.refreshRate ?? "",
+        orientation: selection.orientation ?? "",
+        scale: selection.scale ?? "",
+      });
+    }
+  }, [display?.device_name, selection]);
+
+  const watchedResolution = watch("resolution");
 
   if (!display) {
     return (
@@ -51,28 +108,31 @@ const MonitorSettingsPanel = memo((props) => {
     .replace(/DISPLAY/, "Display ");
   const adapterName = display.adapter_name || "";
   const resolutionOptions = getResolutionOptions(display);
-  const refreshRateOptions = getRefreshRates(display, selection.resolution);
-  const refreshValue = refreshRateOptions.includes(
-    Number(selection.refreshRate),
-  )
-    ? selection.refreshRate
-    : String(refreshRateOptions[0] ?? currentMode?.refresh_rate ?? 60);
-
+  const refreshRateOptions = getRefreshRates(
+    display,
+    watchedResolution || selection.resolution,
+  );
   const currentResolution = currentMode
     ? `${currentMode.width}x${currentMode.height}`
     : "";
+
+  const v = getValues();
   const hasChanges =
-    selection.resolution !== currentResolution ||
-    Number(selection.refreshRate) !== (currentMode?.refresh_rate ?? 0) ||
-    selection.orientation !== display.orientation ||
-    Number(selection.scale) !== (display.scale_factor ?? 100);
+    v.resolution !== currentResolution ||
+    Number(v.refreshRate) !== (currentMode?.refresh_rate ?? 0) ||
+    v.orientation !== display.orientation ||
+    Number(v.scale) !== (display.scale_factor ?? 100);
+
+  const syncToParent = (patch) => {
+    onSelectionChange(display.device_name, patch);
+  };
 
   return (
     <div className="card bg-base-200 border border-base-300 w-full">
-      <div className="card-body p-4 space-y-4">
-        <div className="flex gap-2 border-base-300">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+      <div className="card-body p-4 space-y-2">
+        <div className="flex flex-col gap-2 border-base-300">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-2">
               <span className={`${BADGE_CLS} badge-neutral`}>
                 Monitor: {display.index + 1}
               </span>
@@ -89,13 +149,43 @@ const MonitorSettingsPanel = memo((props) => {
                     : "Inactive"}
               </span>
             </div>
-            <div className="text-lg font-semibold text-base-content mb-1">
-              {display.device_string || "Unknown Monitor"}
+            <div className="join">
+              {!display.is_primary && (
+                <button
+                  className="join-item btn btn-ghost hover:bg-primary/80 btn-square"
+                  type="button"
+                  onClick={() => onMakePrimary(display)}
+                >
+                  <StarIcon className="size-4" />
+                </button>
+              )}
+              {display.is_active ? (
+                <button
+                  className="join-item btn btn-ghost hover:bg-error/80 btn-square"
+                  type="button"
+                  onClick={() => onToggleMonitor(display)}
+                >
+                  <MonitorOff className="size-4" />
+                </button>
+              ) : (
+                <button
+                  className="btn btn-success btn-outline w-full"
+                  type="button"
+                  onClick={() => onToggleMonitor(display)}
+                >
+                  <Link className="size-4" />
+                </button>
+              )}
             </div>
-            <div className="text-sm text-base-content/60">
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-base-content mb-1">
+              {display.device_string || "Unknown Monitor"}
+            </h1>
+            <p className="text-sm text-base-content/60">
               {shortName}
               {adapterName ? ` on ${adapterName}` : ""}
-            </div>
+            </p>
           </div>
         </div>
 
@@ -116,20 +206,23 @@ const MonitorSettingsPanel = memo((props) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-4">
-          <div className="form-control w-full">
-            <label className="label py-1">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-2">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">
               <span className="label-text text-xs font-semibold text-base-content/70">
                 Resolution
               </span>
-            </label>
+            </legend>
+
             <select
               className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
               disabled={!display.is_active}
-              value={selection.resolution}
-              onChange={(event) =>
-                onResolutionChange(display, event.target.value)
-              }
+              {...register("resolution", {
+                onChange: (e) => {
+                  onResolutionChange(display, e.target.value);
+                  syncToParent({ resolution: e.target.value });
+                },
+              })}
             >
               {resolutionOptions.map((resolution) => (
                 <option key={resolution} value={resolution}>
@@ -137,23 +230,25 @@ const MonitorSettingsPanel = memo((props) => {
                 </option>
               ))}
             </select>
-          </div>
+            {errors.resolution && (
+              <p className="text-xs text-error mt-1">
+                {errors.resolution.message}
+              </p>
+            )}
+          </fieldset>
 
-          <div className="form-control w-full">
-            <label className="label py-1">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">
               <span className="label-text text-xs font-semibold text-base-content/70">
                 Refresh Rate
               </span>
-            </label>
+            </legend>
             <select
-              className="select"
+              className="select select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
               disabled={!display.is_active}
-              value={refreshValue}
-              onChange={(event) =>
-                onSelectionChange(display.device_name, {
-                  refreshRate: event.target.value,
-                })
-              }
+              {...register("refreshRate", {
+                onChange: (e) => syncToParent({ refreshRate: e.target.value }),
+              })}
             >
               {refreshRateOptions.map((rate) => (
                 <option key={rate} value={rate}>
@@ -161,23 +256,25 @@ const MonitorSettingsPanel = memo((props) => {
                 </option>
               ))}
             </select>
-          </div>
+            {errors.refreshRate && (
+              <p className="label text-xs text-error mt-1">
+                {errors.refreshRate.message}
+              </p>
+            )}
+          </fieldset>
 
-          <div className="form-control w-full">
-            <label className="label py-1">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">
               <span className="label-text text-xs font-semibold text-base-content/70">
                 Orientation
               </span>
-            </label>
+            </legend>
             <select
               className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
               disabled={!display.is_active}
-              value={selection.orientation}
-              onChange={(event) =>
-                onSelectionChange(display.device_name, {
-                  orientation: event.target.value,
-                })
-              }
+              {...register("orientation", {
+                onChange: (e) => syncToParent({ orientation: e.target.value }),
+              })}
             >
               {ORIENTATION_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -185,23 +282,25 @@ const MonitorSettingsPanel = memo((props) => {
                 </option>
               ))}
             </select>
-          </div>
+            {errors.orientation && (
+              <p className="text-xs text-error mt-1">
+                {errors.orientation.message}
+              </p>
+            )}
+          </fieldset>
 
-          <div className="form-control w-full">
-            <label className="label py-1">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">
               <span className="label-text text-xs font-semibold text-base-content/70">
                 Scale
               </span>
-            </label>
+            </legend>
             <select
               className="select select-bordered select-sm w-full font-mono text-xs focus:border-primary focus:ring-1 focus:ring-primary"
               disabled={!display.is_active}
-              value={selection.scale}
-              onChange={(event) =>
-                onSelectionChange(display.device_name, {
-                  scale: event.target.value,
-                })
-              }
+              {...register("scale", {
+                onChange: (e) => syncToParent({ scale: e.target.value }),
+              })}
             >
               {SCALE_OPTIONS.map((scale) => (
                 <option key={scale} value={scale}>
@@ -209,66 +308,41 @@ const MonitorSettingsPanel = memo((props) => {
                 </option>
               ))}
             </select>
-          </div>
+            {errors.scale && (
+              <p className="text-xs text-error mt-1">{errors.scale.message}</p>
+            )}
+          </fieldset>
         </div>
 
-        <div className="flex flex-wrap gap-3 mt-8 pt-6 border-t border-base-300">
-          {display.is_active ? (
+        <div className="flex flex-wrap gap-1 border-t border-base-300">
+          {display.is_active || display.hasChanges ? (
             <>
               <button
                 className="btn btn-primary flex-1 shadow-md hover:shadow-lg shadow-primary/20"
                 type="button"
                 disabled={!hasChanges || busy}
-                onClick={() => onApply(display)}
+                onClick={handleSubmit(() => onApply(display))}
               >
                 {busy ? (
                   <span className="loading loading-spinner loading-sm"></span>
                 ) : (
                   <Check className="size-4" />
                 )}
-                Apply
+                Save
               </button>
-
-              {hasChanges && (
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => onCancel(display)}
-                >
-                  <X className="size-4" />
-                  Cancel
-                </button>
-              )}
 
               <button
-                className="btn btn-error btn-outline hover:bg-error/10"
+                className="btn btn-neutral flex-1 shadow-md hover:shadow-lg shadow-primary/20"
                 type="button"
-                onClick={() => onToggleMonitor(display)}
+                disabled={!hasChanges || busy}
+                onClick={() => onCancel(display)}
               >
-                <PowerCircle className="size-4" />
-                Disconnect
+                <X className="size-4" />
+                Cancel
               </button>
-
-              {!display.is_primary && (
-                <button
-                  className="btn btn-warning btn-outline hover:bg-warning/10"
-                  type="button"
-                  onClick={() => onMakePrimary(display)}
-                >
-                  <Star className="size-4" />
-                  Make Primary
-                </button>
-              )}
             </>
           ) : (
-            <button
-              className="btn btn-success btn-outline w-full"
-              type="button"
-              onClick={() => onToggleMonitor(display)}
-            >
-              <Power className="size-4" />
-              Reconnect
-            </button>
+            ""
           )}
         </div>
       </div>

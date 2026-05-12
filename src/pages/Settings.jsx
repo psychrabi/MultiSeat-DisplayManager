@@ -74,13 +74,10 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="rounded-xl bg-base-300/50 p-3">
-            <Settings2 className="size-6 text-base-content/60" />
-          </div>
-          <div className="space-y-2">
+    <div className="">
+      <div className="border border-base-300 bg-base-200/60 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
             <h2 className="text-2xl font-semibold text-base-content">
               {PAGE_TITLES.settings}
             </h2>
@@ -92,11 +89,11 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-4">
-        <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="card-body gap-6">
+      <div className="space-y-4 p-4">
+        <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200 ">
+          <div className="card-body gap-4 p-4">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-primary/10 p-3 text-primary shadow-sm">
+              <div className="rounded-xl bg-primary p-3 text-primary-content shadow-sm">
                 <Power className="size-5" />
               </div>
               <div className="space-y-1">
@@ -129,9 +126,9 @@ const SettingsPage = () => {
         </section>
 
         <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="card-body gap-6">
+          <div className="card-body gap-4 p-4">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-secondary/10 p-3 text-secondary shadow-sm">
+              <div className="rounded-xl bg-primary p-3 text-primary-content shadow-sm">
                 <Database className="size-5" />
               </div>
               <div className="space-y-1">
@@ -165,9 +162,9 @@ const SettingsPage = () => {
         </section>
 
         <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="card-body gap-6">
+          <div className="card-body gap-4 p-4">
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-accent/10 p-3 text-accent shadow-sm">
+              <div className="rounded-xl bg-primary p-3 text-primary-content shadow-sm">
                 <Save className="size-5" />
               </div>
               <div className="space-y-1">

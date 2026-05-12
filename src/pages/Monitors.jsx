@@ -69,7 +69,7 @@ export default function Monitors() {
           </div>
 
           <div className="flex gap-3">
-            <div className="tooltip tooltip-bottim" data-tip="Apply my profile">
+            <div className="tooltip tooltip-bottom" data-tip="Apply my profile">
               <button
                 className="btn btn-square btn-ghost"
                 onClick={refreshDisplays}
@@ -89,7 +89,7 @@ export default function Monitors() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] p-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] p-4">
         <section className="space-y-4">
           <div className="flex items-center justify-between border-b-3 border-base-300 pb-2">
             <div>
