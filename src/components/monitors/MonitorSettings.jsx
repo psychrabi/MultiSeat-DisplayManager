@@ -7,7 +7,9 @@ import {
   getResolutionOptions,
   ORIENTATION_OPTIONS,
   SCALE_OPTIONS,
-} from "../js/utils";
+} from "../../js/utils";
+
+const BADGE_CLS = "badge font-mono text-[10px]";
 
 const MonitorSettingsPanel = memo((props) => {
   const {
@@ -24,7 +26,7 @@ const MonitorSettingsPanel = memo((props) => {
 
   if (!display) {
     return (
-      <div className="card h-full border border-base-300 bg-base-200 shadow-xl">
+      <div className="card bg-base-100 shadow-xl">
         <div className="flex flex-1 flex-col items-center justify-center p-10 text-center">
           <div className="mb-4 rounded-full bg-base-300 p-4 text-base-content/40">
             <Monitor className="size-12" />
@@ -66,44 +68,38 @@ const MonitorSettingsPanel = memo((props) => {
     Number(selection.scale) !== (display.scale_factor ?? 100);
 
   return (
-    <div className="card bg-base-200 border border-base-300 shadow-xl w-full">
-      <div className="card-body p-6">
-        <div className="flex gap-2 items-start justify-between border-b border-base-300 pb-4 mb-5">
-          <div className="flex-1 min-w-0">
+    <div className="card bg-base-200 border border-base-300 w-full">
+      <div className="card-body p-4 space-y-4">
+        <div className="flex gap-2 border-base-300">
+          <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="badge badge-neutral font-mono text-[10px]">
-                MON:{display.index + 1}
+              <span className={`${BADGE_CLS} badge-neutral`}>
+                Monitor: {display.index + 1}
               </span>
               {display.is_primary && (
-                <span className="badge badge-primary font-mono text-[10px]">
-                  PRIMARY
-                </span>
+                <span className={`${BADGE_CLS} badge-primary`}>Primary</span>
               )}
-              {display.is_active ? (
-                <span className="badge badge-success badge-outline font-mono text-[10px]">
-                  ACTIVE
-                </span>
-              ) : display.not_detected ? (
-                <span className="badge badge-error badge-outline font-mono text-[10px]">
-                  NOT DETECTED
-                </span>
-              ) : (
-                <span className="badge badge-ghost font-mono text-[10px]">
-                  INACTIVE
-                </span>
-              )}
+              <span
+                className={`${BADGE_CLS} ${display.is_active ? "badge-success badge-outline" : display.not_detected ? "badge-error badge-outline" : "badge-ghost"}`}
+              >
+                {display.is_active
+                  ? "Active"
+                  : display.not_detected
+                    ? "Not Detected"
+                    : "Inactive"}
+              </span>
             </div>
             <div className="text-lg font-semibold text-base-content mb-1">
               {display.device_string || "Unknown Monitor"}
             </div>
             <div className="text-sm text-base-content/60">
               {shortName}
-              {adapterName ? ` • ${adapterName}` : ""}
+              {adapterName ? ` on ${adapterName}` : ""}
             </div>
           </div>
         </div>
 
-        <div className="bg-base-300 rounded-lg p-4 mb-6 flex items-center justify-between font-mono text-sm border border-base-content/5">
+        <div className="bg-base-300 rounded-lg p-4 flex items-center justify-between  text-sm border border-base-content/40">
           <div>
             <div className="text-[11px] font-sans text-base-content/50 uppercase tracking-wider mb-1">
               Current

@@ -1,12 +1,22 @@
-import LayoutPreview from "../components/LayoutPreview";
-import MonitorSettingsPanel from "../components/MonitorSettings";
-import { ConfirmationDialog } from "../components/ConfirmationDialog";
+import LayoutPreview from "../components/monitors/LayoutPreview";
+import MonitorSettingsPanel from "../components/monitors/MonitorSettings";
+import { ConfirmationDialog } from "../components/monitors/ConfirmationDialog";
 
 import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 
 import { useDisplayStore } from "../stores/useDisplayStore";
 import { useMonitorActions } from "../hooks/useMonitorActions";
-import { Check, CheckSquare, MonitorOff, RefreshCcw, X } from "lucide-react";
+import {
+  Check,
+  CheckCheck,
+  CheckSquare,
+  Download,
+  FileOutput,
+  MonitorOff,
+  RefreshCcw,
+  Upload,
+  X,
+} from "lucide-react";
 
 export default function Monitors() {
   // ===== STORE STATE =====
@@ -22,15 +32,12 @@ export default function Monitors() {
     applyCurrentUserProfile,
     draftPosition,
     previewSelectMonitor,
-    cancelLayoutChanges,
-    applyLayoutChanges,
     resolutionChange,
     selectionChange,
     applyMonitorSettings,
     toggleMonitor,
     makePrimary,
     cancelMonitorChanges,
-    hasPendingLayoutChanges,
     confirmState,
     confirmLayoutChange,
     rollbackLayoutChange,
@@ -48,10 +55,10 @@ export default function Monitors() {
 
   // ===== UI =====
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm">
+    <div className="space-y-4">
+      <div className="border border-base-300 bg-base-200/60 p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <h2 className="text-2xl font-semibold text-base-content">
               {PAGE_TITLES.monitors}
             </h2>
@@ -61,26 +68,30 @@ export default function Monitors() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button className="btn btn-primary" onClick={refreshDisplays}>
-              <RefreshCcw className="size-4" />
-              Refresh
-            </button>
-
-            <button
-              className="btn btn-secondary"
-              onClick={applyCurrentUserProfile}
-            >
-              <CheckSquare className="size-4" />
-              Apply My Profile
-            </button>
+          <div className="flex gap-3">
+            <div className="tooltip tooltip-bottim" data-tip="Apply my profile">
+              <button
+                className="btn btn-square btn-ghost"
+                onClick={refreshDisplays}
+              >
+                <RefreshCcw className="size-4" />
+              </button>
+            </div>
+            <div className="tooltip tooltip-left" data-tip="Apply my profile">
+              <button
+                className="btn btn-square btn-primary"
+                onClick={applyCurrentUserProfile}
+              >
+                <FileOutput className="size-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] p-4">
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-b border-base-300 pb-2">
+          <div className="flex items-center justify-between border-b-3 border-base-300 pb-2">
             <div>
               <div className="font-bold uppercase">Current layout</div>
               <p className="mt-1 text-sm text-base-content/70">
@@ -97,25 +108,6 @@ export default function Monitors() {
             onSelectMonitor={previewSelectMonitor}
             highlightedMonitor={highlightedMonitor}
           />
-
-          {hasPendingLayoutChanges && (
-            <div className="flex flex-wrap items-center gap-2 animate-fade-in">
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={cancelLayoutChanges}
-              >
-                <X className="size-4" />
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary btn-sm shadow-md shadow-primary/20"
-                onClick={applyLayoutChanges}
-              >
-                <Check className="size-4" />
-                Apply Layout Changes
-              </button>
-            </div>
-          )}
         </section>
 
         {loadingDisplays ? (
@@ -157,14 +149,13 @@ export default function Monitors() {
           </section>
         ) : (
           <section className="space-y-4">
-            <div className="border-b border-base-300 pb-2">
-              <div className="text-xs font-bold uppercase tracking-widest text-base-content/50">
-                Monitor settings
+            <div className="flex items-center justify-between border-b-3 border-base-300 pb-2">
+              <div>
+                <div className="font-bold uppercase">Display Settings</div>
+                <p className="mt-1 text-sm text-base-content/70">
+                  Select a monitor in the layout to adjust. them.
+                </p>
               </div>
-              <p className="mt-1 text-sm text-base-content/60">
-                Select a monitor in the layout to adjust its mode, orientation,
-                and scale.
-              </p>
             </div>
 
             <MonitorSettingsPanel

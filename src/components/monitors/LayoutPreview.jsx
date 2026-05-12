@@ -1,6 +1,7 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { getDisplayDimensions, snapLayoutPosition } from "../js/utils";
-import { Star } from "lucide-react";
+import { Check, Star, X } from "lucide-react";
+import { memo, useEffect, useRef, useState } from "react";
+import { getDisplayDimensions, snapLayoutPosition } from "../../js/utils";
+import { useMonitorActions } from "../../hooks/useMonitorActions";
 
 const SNAP_THRESHOLD = 50;
 
@@ -58,6 +59,8 @@ const LayoutPreview = memo(
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [dragPreview, setDragPreview] = useState(null);
     const [snapGuides, setSnapGuides] = useState({ v: [], h: [] });
+    const { cancelLayoutChanges, applyLayoutChanges, hasPendingLayoutChanges } =
+      useMonitorActions();
 
     useEffect(() => {
       const node = innerRef.current;
@@ -277,9 +280,9 @@ const LayoutPreview = memo(
     return (
       <div
         ref={innerRef}
-        className="bg-base-200/70 border-2 border-dashed border-base-300 rounded-2xl h-100 relative overflow-hidden shadow-inner"
+        className="bg-base-200/70 border-2 border-base-300 rounded-lg h-100 relative overflow-hidden"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[20px_20px] pointer-events-none" />
+        {/* <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[20px_20px] pointer-events-none" />*/}
         <div className="relative w-full h-full">
           {/* Snap guide lines */}
           {snapGuides.v.map((x, i) => {
@@ -404,6 +407,25 @@ const LayoutPreview = memo(
               </div>
             );
           })}
+
+          {hasPendingLayoutChanges && (
+            <div className="flex flex-wrap items-center gap-2 animate-fade-in absolute bottom-5 right-5">
+              <button
+                className="btn btn-primary btn-sm shadow-md shadow-primary/20"
+                onClick={applyLayoutChanges}
+              >
+                <Check className="size-4" />
+                Apply Changes
+              </button>
+              <button
+                className="btn btn-neutral btn-sm"
+                onClick={cancelLayoutChanges}
+              >
+                <X className="size-4" />
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-import { EmptyProfileState } from "../components/ui.jsx";
+import { EmptyProfileState } from "../components/profiles/ui.jsx";
 import {
   AVATAR_COLORS,
   getAssignmentMonitorName,

@@ -5,28 +5,25 @@ import { useAppStore } from "../stores/useAppStore";
 
 const navItems = [
   { to: "/", label: "Monitors", icon: Monitor, end: true },
-  { to: "/profiles", label: "User Profiles", icon: Users },
+  { to: "/profiles", label: "Profiles", icon: Users },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ onNavigate }) {
-  const collapsed = useAppStore((s) => s.sidebarCollapsed);
-
   return (
-    <aside className="min-h-screen flex flex-col bg-base-100 w-full">
-      <div className="flex items-center gap-2 overflow-hidden p-3 border-b border-base-content/40">
-        <img src={logoUrl} alt="ASTER Logo" className="size-8 shrink-0" />
-        <h1
-          className={`font-semibold whitespace-nowrap transition-opacity duration-300 ease-out ${
-            collapsed ? "opacity-0 w-0" : "opacity-100"
-          }`}
-        >
-          MultiSeat Display Manager
-        </h1>
+    <aside className="w-64 bg-base-100 border-r border-base-300 flex flex-col shrink-0">
+      <div className="p-4 border-b border-base-300">
+        <div className="flex items-center gap-4">
+          <Monitor className="text-primary" size={36} />
+          <div className="flex flex-col">
+            <h1 className="text-3xl font-bold ">MultiSeat</h1>
+            <h2 className="text-lg">Display Manager</h2>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 h-full">
-        <ul className="menu rounded-box w-full gap-2 p-2">
+        <ul className="menu w-full grow">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink
@@ -34,19 +31,15 @@ export function Sidebar({ onNavigate }) {
                 to={to}
                 onClick={onNavigate}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-3 py-3 transition-all duration-200 ${
+                  `flex items-center gap-3  px-3 py-3 transition-all duration-200 ${
                     isActive
-                      ? "menu-active "
+                      ? "bg-primary text-base-100"
                       : "text-base-content/70 hover:bg-base-300/80 hover:text-base-content"
                   }`
                 }
               >
                 <Icon className="size-5 shrink-0" />
-                <span
-                  className={`transition-opacity duration-300 ease-out ${
-                    collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                  }`}
-                >
+                <span className={`transition-opacity duration-300 ease-out `}>
                   {label}
                 </span>
               </NavLink>
@@ -55,9 +48,7 @@ export function Sidebar({ onNavigate }) {
         </ul>
       </div>
       <div
-        className={`px-4 py-3 border-t border-base-300 transition-all duration-300 ease-out ${
-          collapsed ? "opacity-0 overflow-hidden h-0 py-0" : "opacity-100"
-        }`}
+        className={`px-4 py-3 border-t border-base-300 transition-all duration-300 ease-out `}
       >
         <p className="text-sm text-base-content/80 text-center whitespace-nowrap">
           MultiSeat Display Manager v1.0
