@@ -297,7 +297,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(backend)
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
