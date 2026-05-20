@@ -92,7 +92,7 @@ export default function Monitors() {
                 <RefreshCcw className="size-4" />
               </button>
             </div>
-            <div className="tooltip tooltip-left" data-tip="Apply my profile">
+            <div className="tooltip tooltip-left" data-tip="Apply active profile">
               <button
                 className="btn btn-square btn-primary"
                 onClick={applyCurrentUserProfile}

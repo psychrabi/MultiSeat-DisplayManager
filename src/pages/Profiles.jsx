@@ -63,9 +63,10 @@ const ProfilesPage = () => {
   };
 
   const users = Object.keys(profiles.users ?? {});
-  const allUsers = currentUser && !users.includes(currentUser)
-    ? [currentUser, ...users]
-    : users;
+  const allUsers =
+    currentUser && !users.includes(currentUser)
+      ? [currentUser, ...users]
+      : users;
 
   const resolvedUser = selectedProfileUser ?? (currentUser || allUsers[0]);
   const savedProfile = resolvedUser ? profiles.users[resolvedUser] : null;
@@ -106,7 +107,9 @@ const ProfilesPage = () => {
             <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">
               Users
             </span>
-            <span className="badge badge-ghost badge-sm">{allUsers.length}</span>
+            <span className="badge badge-ghost badge-sm">
+              {allUsers.length}
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -137,9 +140,7 @@ const ProfilesPage = () => {
                         onClick={() => setSelectedProfileUser(username)}
                       >
                         <div
-                          className={`w-9 h-9 rounded-xl shrink-0 grid place-items-center text-xs font-bold text-black shadow-sm ${
-                            AVATAR_COLORS[index % AVATAR_COLORS.length]
-                          }`}
+                          className={`w-9 h-9 rounded-xl shrink-0 grid place-items-center text-xs font-bold shadow-sm bg-${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
                         >
                           {getUserInitial(username)}
                         </div>
@@ -154,7 +155,7 @@ const ProfilesPage = () => {
                           >
                             {getUserShortName(username)}
                           </div>
-                          <div className="text-[10px] font-mono text-base-content/50 flex items-center gap-1.5">
+                          <div className="text-[10px] text-base-content/50 flex items-center gap-1.5">
                             <Monitor className="size-3" />
                             {count} monitor{count === 1 ? "" : "s"}
                           </div>
@@ -251,7 +252,9 @@ const ProfilesPage = () => {
                       <Monitor className="size-8 text-base-content/40" />
                     </div>
                     <p className="text-sm font-medium">
-                      {savedProfile ? "No monitor assignments" : "Profile not saved yet"}
+                      {savedProfile
+                        ? "No monitor assignments"
+                        : "Profile not saved yet"}
                     </p>
                     <p className="text-xs text-base-content/40">
                       {savedProfile

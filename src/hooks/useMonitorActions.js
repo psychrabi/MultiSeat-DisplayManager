@@ -395,15 +395,20 @@ export function useMonitorActions() {
   };
 
   const applyCurrentUserProfile = async () => {
+    const target = activeProfile || currentUser;
+    if (!target) {
+      pushToast("No active profile or user set", "warning");
+      return;
+    }
     try {
       const results = await invoke("apply_profile_for_user", {
-        username: currentUser,
+        username: target,
       });
 
       const success = results?.filter((r) => r.success).length ?? 0;
 
       if (success) {
-        pushToast(`Applied ${success} settings`, "success");
+        pushToast(`Applied ${success} settings from ${target}`, "success");
       }
 
       await refreshDisplays();

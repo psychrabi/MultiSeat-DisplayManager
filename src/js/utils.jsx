@@ -1,13 +1,13 @@
 const DEFAULT_MODE = { refresh_rate: 60, width: 1920, height: 1080 };
 
 export const AVATAR_COLORS = [
-  "bg-primary",
-  "bg-accent",
-  "bg-success",
-  "bg-warning",
-  "bg-error",
-  "bg-secondary",
-  "bg-info",
+  "primary",
+  "success",
+  "warning",
+  "error",
+  "secondary",
+  "info",
+  "accent",
 ];
 
 export const PAGE_TITLES = {
