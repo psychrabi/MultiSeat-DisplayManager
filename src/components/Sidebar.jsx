@@ -1,22 +1,37 @@
-import { Monitor, Settings, Users } from "lucide-react";
+import {
+  Monitor,
+  MonitorCog,
+  MonitorCogIcon,
+  Settings,
+  Users,
+} from "lucide-react";
 import { NavLink } from "react-router";
+import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import logoUrl from "../../src-tauri/icons/128x128.png";
 import { useAppStore } from "../stores/useAppStore";
 
-const navItems = [
-  { to: "/", label: "Monitors", icon: Monitor, end: true },
-  { to: "/profiles", label: "Profiles", icon: Users },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
-
 export function Sidebar({ onNavigate }) {
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion(""));
+  }, []);
+
+  const navItems = [
+    { to: "/", label: "Monitors", icon: Monitor, end: true },
+    { to: "/profiles", label: "Profiles", icon: Users },
+    { to: "/settings", label: "Settings", icon: Settings },
+  ];
+
   return (
     <aside className="w-64 bg-base-100 border-r border-base-300 flex flex-col shrink-0">
       <div className="p-4 border-b border-base-300">
         <div className="flex items-center gap-4">
-          <Monitor className="text-primary" size={36} />
+          <MonitorCog className="text-primary" size={36} />
           <div className="flex flex-col">
-            <h1 className="text-3xl font-bold ">MultiSeat</h1>
             <h2 className="text-lg">Display Manager</h2>
           </div>
         </div>
@@ -51,7 +66,7 @@ export function Sidebar({ onNavigate }) {
         className={`px-4 py-3 border-t border-base-300 transition-all duration-300 ease-out `}
       >
         <p className="text-sm text-base-content/80 text-center whitespace-nowrap">
-          Display Manager
+          Display Manager {version && `v${version}`}
         </p>
       </div>
     </aside>

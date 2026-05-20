@@ -295,6 +295,13 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            let version = env!("CARGO_PKG_VERSION");
+            let main_window = app.get_webview_window("main")
+                .expect("main window must exist");
+            main_window.set_title(&format!("Display Manager v{version}"))?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_displays,
             apply_settings,
