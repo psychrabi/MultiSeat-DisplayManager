@@ -12,14 +12,12 @@ function App() {
     <ThemeProvider>
       <div className="flex h-screen bg-base-200">
         <Sidebar />
-
         <div className="flex-1 flex flex-col overflow-y-auto bg-base-100">
           <UpdateBanner />
           <main className="flex-1">
             <Outlet />
           </main>
         </div>
-
         <ToastContainer />
       </div>
     </ThemeProvider>

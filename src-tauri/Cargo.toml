@@ -1,6 +1,6 @@
 [package]
 name = "display-manager"
-version = "1.0.0"
+version = "1.0.1"
 description = "Display Manager is an application which allows to manage display settings in multi user enviroment. Each user can configure their own display settings independently."
 authors = ["you"]
 edition = "2021"
