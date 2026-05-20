@@ -9,6 +9,7 @@ import {
   buildSelectionForDisplay,
   getRefreshRates,
   getDisplayKey,
+  getUserShortName,
 } from "../js/utils";
 
 export function useMonitorActions() {
@@ -25,7 +26,7 @@ export function useMonitorActions() {
     refreshDisplays,
   } = useDisplayStore();
 
-  const { pushToast, settings, currentUser } = useAppStore();
+  const { pushToast, settings, currentUser, activeProfile } = useAppStore();
   const { profiles, refreshProfiles } = useProfileStore();
 
   const cardRefs = useRef({});
@@ -145,10 +146,11 @@ export function useMonitorActions() {
       await refreshDisplays();
 
       if (settings.autoSave) {
+        const targetProfile = activeProfile || currentUser;
         const assignments = buildFullAssignments();
-        if (Object.keys(assignments).length > 0) {
+        if (Object.keys(assignments).length > 0 && targetProfile) {
           await invoke("save_user_profile", {
-            username: currentUser,
+            username: targetProfile,
             assignments,
           });
           await refreshProfiles();
@@ -352,16 +354,17 @@ export function useMonitorActions() {
         });
         await refreshDisplays();
 
-        if (settings.autoSave) {
-          const assignments = buildFullAssignments();
-          if (Object.keys(assignments).length > 0) {
-            await invoke("save_user_profile", {
-              username: currentUser,
-              assignments,
-            });
-            await refreshProfiles();
-          }
+      if (settings.autoSave) {
+        const targetProfile = activeProfile || currentUser;
+        const assignments = buildFullAssignments();
+        if (Object.keys(assignments).length > 0 && targetProfile) {
+          await invoke("save_user_profile", {
+            username: targetProfile,
+            assignments,
+          });
+          await refreshProfiles();
         }
+      }
       } else {
         pushToast(result?.message || "Toggle failed", "error");
       }
@@ -409,6 +412,21 @@ export function useMonitorActions() {
     }
   };
 
+  const saveCurrentToProfile = async (username) => {
+    if (!username) {
+      pushToast("No user selected to save to", "warning");
+      return;
+    }
+    try {
+      const assignments = buildFullAssignments();
+      await invoke("save_user_profile", { username, assignments });
+      await refreshProfiles();
+      pushToast(`Settings saved to ${getUserShortName(username)}`, "success");
+    } catch (err) {
+      pushToast(`Save failed: ${err}`, "error");
+    }
+  };
+
   return {
     hasPendingLayoutChanges,
     registerCardRef,
@@ -424,6 +442,7 @@ export function useMonitorActions() {
     makePrimary,
     cancelMonitorChanges,
     applyCurrentUserProfile,
+    saveCurrentToProfile,
     refreshDisplays,
     confirmState,
     confirmLayoutChange,

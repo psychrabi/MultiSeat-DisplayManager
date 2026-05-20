@@ -1,15 +1,7 @@
-import {
-  Monitor,
-  MonitorCog,
-  MonitorCogIcon,
-  Settings,
-  Users,
-} from "lucide-react";
+import { Monitor, MonitorCog, Settings, Users } from "lucide-react";
 import { NavLink } from "react-router";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import logoUrl from "../../src-tauri/icons/128x128.png";
-import { useAppStore } from "../stores/useAppStore";
 
 export function Sidebar({ onNavigate }) {
   const [version, setVersion] = useState("");
@@ -54,18 +46,15 @@ export function Sidebar({ onNavigate }) {
                 }
               >
                 <Icon className="size-5 shrink-0" />
-                <span className={`transition-opacity duration-300 ease-out `}>
-                  {label}
-                </span>
+                <span>{label}</span>
               </NavLink>
             </li>
           ))}
         </ul>
       </div>
-      <div
-        className={`px-4 py-3 border-t border-base-300 transition-all duration-300 ease-out `}
-      >
-        <p className="text-sm text-base-content/80 text-center whitespace-nowrap">
+
+      <div className="px-4 py-3 border-t border-base-300">
+        <p className="text-xs text-base-content/50 text-center">
           Display Manager {version && `v${version}`}
         </p>
       </div>

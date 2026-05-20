@@ -1,8 +1,37 @@
 import { create } from "zustand";
 
+function loadActiveProfile() {
+  try {
+    return localStorage.getItem("display-manager-active-profile") ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveActiveProfile(user) {
+  try {
+    if (user) {
+      localStorage.setItem("display-manager-active-profile", user);
+    } else {
+      localStorage.removeItem("display-manager-active-profile");
+    }
+  } catch {}
+}
+
 export const useAppStore = create((set) => ({
   currentUser: "",
-  setCurrentUser: (user) => set({ currentUser: user }),
+  setCurrentUser: (user) =>
+    set((state) => {
+      const active = state.activeProfile || user;
+      if (!state.activeProfile) saveActiveProfile(active);
+      return { currentUser: user, activeProfile: active };
+    }),
+
+  activeProfile: loadActiveProfile(),
+  setActiveProfile: (user) => {
+    saveActiveProfile(user);
+    set({ activeProfile: user });
+  },
 
   sidebarCollapsed: false,
   toggleSidebar: () =>

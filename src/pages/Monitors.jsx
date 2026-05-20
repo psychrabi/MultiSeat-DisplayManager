@@ -6,6 +6,7 @@ import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 
 import { useDisplayStore } from "../stores/useDisplayStore";
 import { useMonitorActions } from "../hooks/useMonitorActions";
+import { useAppStore } from "../stores/useAppStore";
 import {
   Check,
   CheckCheck,
@@ -14,6 +15,7 @@ import {
   FileOutput,
   MonitorOff,
   RefreshCcw,
+  Save,
   Upload,
   X,
 } from "lucide-react";
@@ -25,11 +27,14 @@ export default function Monitors() {
   const highlightedMonitor = useDisplayStore((s) => s.highlightedMonitor);
   const busyMonitor = useDisplayStore((s) => s.busyMonitor);
   const monitorSelections = useDisplayStore((s) => s.monitorSelections);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const activeProfile = useAppStore((s) => s.activeProfile);
 
   // ===== ACTIONS =====
   const {
     refreshDisplays,
     applyCurrentUserProfile,
+    saveCurrentToProfile,
     draftPosition,
     previewSelectMonitor,
     resolutionChange,
@@ -69,7 +74,17 @@ export default function Monitors() {
           </div>
 
           <div className="flex gap-3">
-            <div className="tooltip tooltip-bottom" data-tip="Apply my profile">
+            {activeProfile && (
+              <div className="tooltip tooltip-bottom" data-tip="Save to profile">
+                <button
+                  className="btn btn-square btn-ghost"
+                  onClick={() => saveCurrentToProfile(activeProfile)}
+                >
+                  <Save className="size-4" />
+                </button>
+              </div>
+            )}
+            <div className="tooltip tooltip-bottom" data-tip="Refresh displays">
               <button
                 className="btn btn-square btn-ghost"
                 onClick={refreshDisplays}

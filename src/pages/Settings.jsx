@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Database, Power, Save, Settings2 } from "lucide-react";
 import { invoke } from "../api";
 import { PAGE_TITLES } from "../js/utils";
+import { useTheme } from "../contexts/ThemeContext";
 
 import { useAppStore } from "../stores/useAppStore";
 
@@ -9,6 +10,7 @@ const SettingsPage = () => {
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const pushToast = useAppStore((s) => s.pushToast);
+  const { theme, setTheme, themes } = useTheme();
   const [startupEnabled, setStartupEnabled] = useState(false);
   const [startupLoading, setStartupLoading] = useState(true);
   const [startupSaving, setStartupSaving] = useState(false);
@@ -90,6 +92,44 @@ const SettingsPage = () => {
       </div>
 
       <div className="space-y-4 p-4">
+        <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="card-body gap-4 p-4">
+            <div className="flex items-start gap-4">
+              <div className="rounded-xl bg-primary p-3 text-primary-content shadow-sm">
+                <Save className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="card-title">Application Theme</h3>
+                <p className="text-sm text-base-content/70">
+                  Choose the theme for the application.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 hover:bg-base-200/50 transition-colors">
+              <div>
+                <div className="text-sm font-medium">
+                  Default is what the system is using as its theme.
+                </div>
+                <div className="mt-0.5 text-xs text-base-content/60">
+                  You can override this by selecting a different theme from the
+                  dropdown.
+                </div>
+              </div>
+              <select
+                className="select"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+              >
+                {themes.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
         <section className="card border border-base-300 bg-base-200 shadow-sm hover:shadow-md transition-shadow duration-200 ">
           <div className="card-body gap-4 p-4">
             <div className="flex items-start gap-4">

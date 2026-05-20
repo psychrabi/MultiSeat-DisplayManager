@@ -8,8 +8,9 @@ import {
 } from "../js/utils.jsx";
 
 import { useProfileStore } from "../stores/useProfileStore";
+import { useDisplayStore } from "../stores/useDisplayStore";
 import { useAppStore } from "../stores/useAppStore";
-import { Plus, Trash2, Monitor, UserCheck, Users } from "lucide-react";
+import { Plus, Trash2, Monitor, UserCheck, Users, Target } from "lucide-react";
 import { invoke } from "../api";
 
 const ProfilesPage = () => {
@@ -22,7 +23,11 @@ const ProfilesPage = () => {
   const setNewProfileUsername = useProfileStore((s) => s.setNewProfileUsername);
   const refreshProfiles = useProfileStore((s) => s.refreshProfiles);
 
+  const refreshDisplays = useDisplayStore((s) => s.refreshDisplays);
+
   const currentUser = useAppStore((s) => s.currentUser);
+  const activeProfile = useAppStore((s) => s.activeProfile);
+  const setActiveProfile = useAppStore((s) => s.setActiveProfile);
   const pushToast = useAppStore((s) => s.pushToast);
 
   const handleCreateProfile = async (e) => {
@@ -58,9 +63,13 @@ const ProfilesPage = () => {
   };
 
   const users = Object.keys(profiles.users ?? {});
-  const selectedProfile = selectedProfileUser
-    ? profiles.users[selectedProfileUser]
-    : null;
+  const allUsers = currentUser && !users.includes(currentUser)
+    ? [currentUser, ...users]
+    : users;
+
+  const resolvedUser = selectedProfileUser ?? (currentUser || allUsers[0]);
+  const savedProfile = resolvedUser ? profiles.users[resolvedUser] : null;
+  const selectedProfile = savedProfile ?? { assignments: {} };
 
   return (
     <div className="">
@@ -97,11 +106,11 @@ const ProfilesPage = () => {
             <span className="text-xs font-bold uppercase tracking-widest text-base-content/60">
               Users
             </span>
-            <span className="badge badge-ghost badge-sm">{users.length}</span>
+            <span className="badge badge-ghost badge-sm">{allUsers.length}</span>
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {users.length === 0 ? (
+            {allUsers.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 text-base-content/50 text-center p-8 h-full">
                 <div className="rounded-full bg-base-300 p-4">
                   <Users className="size-8 text-base-content/40" />
@@ -113,16 +122,15 @@ const ProfilesPage = () => {
               </div>
             ) : (
               <ul className="menu bg-base-200 w-full p-0 divide-y divide-base-300/50">
-                {users.map((username, index) => {
-                  const count = Object.keys(
-                    profiles.users[username]?.assignments ?? {},
-                  ).length;
+                {allUsers.map((username, index) => {
+                  const saved = profiles.users[username];
+                  const count = Object.keys(saved?.assignments ?? {}).length;
 
                   return (
                     <li key={username}>
                       <div
                         className={`group flex items-center gap-3 p-3.5 transition-colors cursor-pointer ${
-                          selectedProfileUser === username
+                          resolvedUser === username
                             ? "bg-primary/10 hover:bg-primary/15"
                             : "hover:bg-base-300/50"
                         }`}
@@ -139,7 +147,7 @@ const ProfilesPage = () => {
                         <div className="flex flex-col min-w-0 flex-1">
                           <div
                             className={`text-sm font-medium truncate ${
-                              selectedProfileUser === username
+                              resolvedUser === username
                                 ? "text-primary"
                                 : "text-base-content"
                             }`}
@@ -159,16 +167,48 @@ const ProfilesPage = () => {
                           </div>
                         )}
 
-                        <button
-                          className="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity text-error"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProfile(username);
-                          }}
-                          title={`Delete ${getUserShortName(username)}`}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        {username !== activeProfile && (
+                          <button
+                            className="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                            data-tip="Apply & set as active"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setActiveProfile(username);
+                              setSelectedProfileUser(username);
+                              if (profiles.users[username]) {
+                                try {
+                                  await invoke("apply_profile_for_user", {
+                                    username,
+                                  });
+                                } catch (err) {
+                                  console.error("Apply failed:", err);
+                                }
+                              }
+                              await refreshProfiles();
+                              await refreshDisplays();
+                              pushToast(
+                                `${getUserShortName(username)} set as active profile`,
+                                "success",
+                              );
+                            }}
+                            title="Apply and set as active profile"
+                          >
+                            <Target className="size-3" />
+                          </button>
+                        )}
+
+                        {saved && (
+                          <button
+                            className="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity text-error"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProfile(username);
+                            }}
+                            title={`Delete ${getUserShortName(username)}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
                       </div>
                     </li>
                   );
@@ -179,19 +219,25 @@ const ProfilesPage = () => {
         </div>
 
         <div className="card bg-base-200 border border-base-300 shadow-sm flex flex-col min-h-105 overflow-hidden">
-          {!selectedProfileUser || !selectedProfile ? (
+          {!resolvedUser ? (
             <EmptyProfileState />
           ) : (
             <>
               <div className="px-5 py-3.5 border-b border-base-300 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="text-xs font-bold uppercase tracking-widest text-base-content/60">
-                    Profile: {getUserShortName(selectedProfileUser)}
+                    Profile: {getUserShortName(resolvedUser)}
                   </div>
-                  {selectedProfileUser === currentUser && (
+                  {resolvedUser === currentUser && (
                     <span className="badge badge-success badge-outline badge-sm font-mono tracking-widest gap-1">
                       <UserCheck className="size-2.5" />
                       YOU
+                    </span>
+                  )}
+                  {resolvedUser === activeProfile && (
+                    <span className="badge badge-primary badge-outline badge-sm font-mono tracking-widest gap-1">
+                      <Target className="size-2.5" />
+                      ACTIVE
                     </span>
                   )}
                 </div>
@@ -205,10 +251,12 @@ const ProfilesPage = () => {
                       <Monitor className="size-8 text-base-content/40" />
                     </div>
                     <p className="text-sm font-medium">
-                      No monitor assignments
+                      {savedProfile ? "No monitor assignments" : "Profile not saved yet"}
                     </p>
                     <p className="text-xs text-base-content/40">
-                      Assign monitors from the Monitors page.
+                      {savedProfile
+                        ? "Apply display settings from the Monitors page to create assignments."
+                        : "Apply display settings and enable auto-save to create this profile."}
                     </p>
                   </div>
                 ) : (
@@ -258,7 +306,9 @@ const ProfilesPage = () => {
         <div className="modal-box bg-base-200 border border-base-300 shadow-2xl">
           <h3 className="font-bold text-lg mb-1">Create New Profile</h3>
           <p className="text-sm text-base-content/60 mb-5">
-            Enter a username or profile name for the new display assignment set.
+            Enter a username or profile name. The profile will be selected
+            automatically after creation &mdash; apply monitor settings to save
+            to it.
           </p>
           <form onSubmit={handleCreateProfile}>
             <div className="form-control w-full">
