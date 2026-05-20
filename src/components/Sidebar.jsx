@@ -51,7 +51,7 @@ export function Sidebar({ onNavigate }) {
         className={`px-4 py-3 border-t border-base-300 transition-all duration-300 ease-out `}
       >
         <p className="text-sm text-base-content/80 text-center whitespace-nowrap">
-          MultiSeat Display Manager v1.0
+          Display Manager
         </p>
       </div>
     </aside>

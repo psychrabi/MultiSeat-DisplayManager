@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Default capabilities","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","process:default","updater:default",{"identifier":"updater:allow-check"},{"identifier":"updater:allow-download-and-install"}]}}

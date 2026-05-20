@@ -1,0 +1,19 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "process:default",
+    "updater:default",
+    {
+      "identifier": "updater:allow-check",
+      "description": "Allows checking for updates"
+    },
+    {
+      "identifier": "updater:allow-download-and-install",
+      "description": "Allows downloading and installing updates"
+    }
+  ]
+}
