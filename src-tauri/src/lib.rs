@@ -56,9 +56,14 @@ fn save_user_profile(
         .keys()
         .filter(|old_key| {
             !assignments.contains_key(*old_key)
-                && assignments
-                    .values()
-                    .any(|new_a| user_profile.assignments.get(*old_key).map_or(false, |old_a| same_monitor(&new_a.display_id, &old_a.display_id)))
+                && assignments.values().any(|new_a| {
+                    user_profile
+                        .assignments
+                        .get(*old_key)
+                        .map_or(false, |old_a| {
+                            same_monitor(&new_a.display_id, &old_a.display_id)
+                        })
+                })
         })
         .cloned()
         .collect();
@@ -253,7 +258,7 @@ fn set_startup(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
             app.path()
                 .resource_dir()
                 .map(|d| {
-                    d.join("../aster-display-manager.exe")
+                    d.join("../display-manager.exe")
                         .to_string_lossy()
                         .into_owned()
                 })
@@ -297,7 +302,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let version = env!("CARGO_PKG_VERSION");
-            let main_window = app.get_webview_window("main")
+            let main_window = app
+                .get_webview_window("main")
                 .expect("main window must exist");
             main_window.set_title(&format!("Display Manager v{version}"))?;
             Ok(())

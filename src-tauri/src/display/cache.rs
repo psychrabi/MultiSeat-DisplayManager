@@ -1,6 +1,6 @@
-use std::sync::Mutex;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +38,7 @@ static KNOWN_MONITORS: Mutex<Vec<KnownMonitor>> = Mutex::new(Vec::new());
 #[cfg(windows)]
 fn known_monitors_path() -> PathBuf {
     let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("C:\\ProgramData"));
-    path.push("AsterDisplayManager");
+    path.push("DisplayManager");
     path.push("known_monitors.json");
     path
 }

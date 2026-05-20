@@ -100,7 +100,7 @@ const SettingsPage = () => {
                 <h3 className="card-title">Auto-Apply on Login</h3>
                 <p className="text-sm text-base-content/70">
                   Automatically apply your saved display profile when this
-                  Windows account logs in. Useful for ASTER multi-seat setups.
+                  Windows account logs in. Very useful for multi-seat setups.
                 </p>
               </div>
             </div>

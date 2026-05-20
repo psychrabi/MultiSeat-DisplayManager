@@ -38,7 +38,7 @@ pub struct AllProfiles {
 
 fn config_path() -> PathBuf {
     let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("C:\\ProgramData"));
-    path.push("AsterDisplayManager");
+    path.push("DisplayManager");
     path.push("profiles.json");
     path
 }
@@ -241,12 +241,12 @@ pub fn set_startup_enabled(enabled: bool, exe_path: &str) -> Result<(), String> 
     if enabled {
         run_key
             .set_value(
-                "AsterDisplayManager",
+                "DisplayManager",
                 &format!("\"{}\" --apply-profile", exe_path),
             )
             .map_err(|e| e.to_string())?;
     } else {
-        let _ = run_key.delete_value("AsterDisplayManager");
+        let _ = run_key.delete_value("DisplayManager");
     }
     Ok(())
 }
@@ -258,7 +258,7 @@ pub fn is_startup_enabled() -> bool {
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     if let Ok(run_key) = hkcu.open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run") {
-        let val: Result<String, _> = run_key.get_value("AsterDisplayManager");
+        let val: Result<String, _> = run_key.get_value("DisplayManager");
         val.is_ok()
     } else {
         false

@@ -4,9 +4,9 @@
 fn main() {
     // If launched with --apply-profile flag, apply current user's profile and exit silently.
     if std::env::args().any(|a| a == "--apply-profile") {
-        aster_display_manager_lib::apply_current_user_profile();
+        display_manager_lib::apply_current_user_profile();
         return;
     }
 
-    aster_display_manager_lib::run();
+    display_manager_lib::run();
 }

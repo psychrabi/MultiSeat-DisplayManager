@@ -1,98 +1,133 @@
-# MultiSeat Display Manager
+# Display Manager
 
-A native Windows desktop app (built with Tauri + Rust + React) to manage display resolution and refresh rates per user for ASTER multi-seat setups.
+A native Windows desktop application for managing display settings in multi-user environments. Built with Tauri v2, Rust, and React.
+
+Each user can configure their own display resolution, refresh rate, orientation, scale, and layout independently.
 
 ## Features
 
-- **Detect all active monitors** — lists every display Windows reports as active
-- **Change resolution & refresh rate** per monitor with a single click
-- **Persist to registry** — settings survive reboots (uses `CDS_UPDATEREGISTRY | CDS_GLOBAL`)
-- **Per-user profiles** — save different display configurations for each ASTER seat user
-- **Auto-apply on login** — registers itself to HKCU\...\Run so settings are applied when each user logs in
-- **`--apply-profile` CLI flag** — runs headlessly, applies the current user's profile, and exits (used by startup registration)
+- **Monitor detection** — enumerates all active displays via Windows GDI
+- **Per-monitor settings** — change resolution, refresh rate, orientation, and scale
+- **Interactive layout preview** — drag monitors to reposition them with snap alignment
+- **Per-user profiles** — save and restore different display configurations for each user
+- **Auto-apply on login** — registers to run at startup so settings are applied per user automatically
+- **Auto-updater** — checks GitHub Releases for new versions and installs them in-app
+- **Light/Dark mode** — automatically follows OS color scheme preference
 
 ## Prerequisites
 
-1. **Rust** — https://rustup.rs (install the `stable-x86_64-pc-windows-msvc` toolchain)
-2. **Node.js** ≥ 18 — https://nodejs.org
-3. **Tauri CLI v2** — installed via npm (see below)
-4. **Visual C++ Build Tools** — install via Visual Studio Installer (select "Desktop development with C++")
-5. **WebView2** — pre-installed on Windows 10 1803+ / Windows 11
+- **Rust** — install via https://rustup.rs (stable toolchain)
+- **Bun** — install via `powershell -c "irm bun.sh/install.ps1 | iex"`
+- **Visual C++ Build Tools** — from Visual Studio Installer, select "Desktop development with C++"
+- **WebView2** — pre-installed on Windows 10 1803+ / Windows 11
 
-## Setup & Build
+## Setup
 
 ```bash
-# 1. Clone / extract the project
-cd aster-display-manager
+# Install JS dependencies
+bun install
 
-# 2. Install JS dependencies
-npm install
+# Development (starts Tauri + Vite dev server)
+bun run dev
 
-# 3. Development (starts Tauri + the React dev server)
-npm run dev
-
-# 4. Production build (builds the React frontend and creates the installer)
-npm run build
+# Production build (creates NSIS installer)
+bun run build
 ```
 
-The installer will be at:
-```
-src-tauri/target/release/bundle/nsis/ASTER Display Manager_1.0.0_x64-setup.exe
-```
+The installer is at `src-tauri/target/release/bundle/nsis/`.
 
-## How It Works
+## Usage
 
-### Monitor Detection
-Uses `EnumDisplayDevicesW` + `EnumDisplaySettingsW` (Windows GDI) to enumerate all active adapters and their supported display modes.
-
-### Applying Settings
-Calls `ChangeDisplaySettingsExW` with the selected `DEVMODEW`. When "Persist" is enabled, passes `CDS_UPDATEREGISTRY | CDS_GLOBAL` flags so Windows writes the setting to the registry.
+1. Launch the app — it detects all connected monitors
+2. Click a monitor in the layout preview to select it
+3. Adjust resolution, refresh rate, orientation, or scale
+4. Click **Apply** to commit changes
+5. Drag monitors in the layout preview to reposition them, then click **Apply Changes**
 
 ### Per-User Profiles
-Profiles are saved to:
-```
-%APPDATA%\AsterDisplayManager\profiles.json
-```
 
-Each profile maps a Windows device name (e.g. `\\.\DISPLAY1`) to a desired mode.
-
-### Auto-Apply on Login
-When "Run at startup" is toggled on, a registry entry is added:
-```
-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
-  AsterDisplayManager = "C:\...\aster-display-manager.exe" --apply-profile
-```
-
-Each ASTER seat user should:
-1. Open the app on their session
-2. Set their desired resolution/refresh rate and hit **Apply & Save**
-3. Enable **Run at startup** in Settings
-
-This way, every user who logs in will automatically get their display configured.
-
-## ASTER-Specific Notes
-
-- Run the app **once per seat user** to configure their profile
-- The `--apply-profile` mode is intentionally headless — it applies settings and exits immediately, so it won't interrupt the user's login experience
-- If ASTER resets display assignments on reboot, enable "Persist to Registry" so Windows re-applies the correct mode before ASTER initializes
+1. Go to the **Profiles** page
+2. Select a user and save their display configuration
+3. Enable **Run at startup** in **Settings** so the profile applies automatically at login
 
 ## Project Structure
 
 ```
-aster-display-manager/
-├── index.html              # Vite entry HTML + shared app styles
+DisplayManager/
+├── index.html                 # Vite entry HTML
 ├── src/
-│   ├── App.jsx             # React UI
-│   ├── api.js              # Tauri invoke wrapper + browser fallback
-│   └── main.jsx            # React entry point
+│   ├── App.jsx                # Root layout + sidebar + router
+│   ├── main.jsx               # React entry point
+│   ├── api.js                 # Tauri invoke wrapper
+│   ├── js/utils.jsx           # Display utility functions
+│   ├── hooks/
+│   │   ├── useInitApp.js       # App initialization
+│   │   ├── useMonitorActions.js # Monitor CRUD actions
+│   │   └── useUpdater.js       # Auto-update check logic
+│   ├── stores/
+│   │   ├── useAppStore.js      # Global app state (Zustand)
+│   │   ├── useDisplayStore.js  # Display/monitor state
+│   │   └── useProfileStore.js  # User profile state
+│   ├── components/
+│   │   ├── Sidebar.jsx
+│   │   ├── ToastContainer.jsx
+│   │   ├── UpdateBanner.jsx    # Auto-update UI
+│   │   ├── monitors/
+│   │   │   ├── MonitorSettings.jsx  # Per-monitor settings form
+│   │   │   ├── LayoutPreview.jsx    # Drag-to-snap layout
+│   │   │   └── ConfirmationDialog.jsx
+│   │   └── profiles/
+│   │       └── ui.jsx
+│   └── pages/
+│       ├── Monitors.jsx
+│       ├── Profiles.jsx
+│       └── Settings.jsx
 ├── src-tauri/
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
+│   ├── capabilities/
+│   │   └── default.json       # Plugin permissions
 │   └── src/
-│       ├── main.rs         # Entry point + --apply-profile handling
-│       ├── lib.rs          # Tauri commands
-│       ├── display.rs      # Windows GDI display API
-│       └── profiles.rs     # Profile persistence + startup registry
-├── vite.config.js
+│       ├── main.rs             # Entry point + --apply-profile flag
+│       ├── lib.rs              # Tauri commands + plugin setup
+│       ├── backend.rs          # Win32 display backend trait
+│       └── profiles.rs         # Profile persistence + startup registry
+├── .github/workflows/
+│   └── publish-windows.yml     # CI/CD for Windows releases
 └── package.json
 ```
+
+## How It Works
+
+### Display API
+Uses `EnumDisplayDevicesW` + `EnumDisplaySettingsW` (Windows GDI) to enumerate adapters and supported modes. Applies settings via `ChangeDisplaySettingsExW`.
+
+### Profiles
+Saved to `%APPDATA%\DisplayManager\profiles.json`. Each profile maps a Windows display device to its desired mode, position, orientation, and scale.
+
+### Auto-Start
+Registers `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` with the `--apply-profile` flag, which applies the current user's saved profile headlessly on login.
+
+### Auto-Updater
+On launch, the app checks `https://github.com/psychrabi/MultiSeat-DisplayManager/releases/latest/download/latest.json` for a newer version. If found, a banner appears with download progress and an install button.
+
+## Publishing a Release
+
+1. Bump `version` in `src-tauri/tauri.conf.json`
+2. Commit with `Release` in the commit message (e.g. `Release v1.0.1`)
+3. Push to `main` — the workflow builds the app and creates a draft release
+4. Go to **Releases** on GitHub, review, and publish
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Desktop framework | [Tauri v2](https://v2.tauri.app) |
+| Frontend | React 19 + React Router 7 |
+| Styling | Tailwind CSS 4 + DaisyUI 5 |
+| Form validation | react-hook-form + Zod |
+| State management | Zustand |
+| Icons | Lucide React |
+| Backend | Rust (Win32 GDI API) |
+| Bundler | Vite 8 |
+| Package manager | Bun |
