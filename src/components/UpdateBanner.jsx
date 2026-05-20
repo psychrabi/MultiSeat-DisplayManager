@@ -13,7 +13,31 @@ const UpdateBanner = memo(() => {
     installUpdate,
   } = useUpdater();
 
-  if (checking || !update) return null;
+  if (!checking && !update && !error) return null;
+
+  if (checking) {
+    return (
+      <div className="alert alert-info shadow-sm rounded-none border-b border-info/20">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="loading loading-spinner loading-xs"></span>
+          Checking for updates...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="alert alert-error shadow-sm rounded-none border-b border-error/20">
+        <div className="flex w-full items-center justify-between gap-3">
+          <span className="text-sm">Update check failed: {error}</span>
+          <button className="btn btn-ghost btn-xs" onClick={dismissUpdate}>
+            <X className="size-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="alert alert-info shadow-lg rounded-none border-b border-info/20">

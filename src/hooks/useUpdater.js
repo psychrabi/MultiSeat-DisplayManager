@@ -30,6 +30,7 @@ export function useUpdater() {
 
   const dismissUpdate = useCallback(() => {
     setUpdate(null);
+    setError(null);
   }, []);
 
   const installUpdate = useCallback(async () => {
