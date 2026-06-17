@@ -1,13 +1,21 @@
+//! Display Manager — per-user display settings for multi-user Windows environments.
+//!
+//! This crate provides the Tauri backend for managing per-user display configurations,
+//! including monitor enumeration, resolution/refresh-rate/orientation/scale changes,
+//! profile persistence, and layout rollback.
+
 mod backend;
 mod display;
 mod profiles;
 
+use std::collections::HashMap;
+
+use tauri::Manager;
+
 use backend::DynDisplayBackend;
 use display::ApplyResult;
 use display::DisplayId;
-use profiles::{remap_profile_assignments, AllProfiles, DisplayAssignment, UserDisplayProfile};
-use std::collections::HashMap;
-use tauri::Manager;
+use profiles::{remap_profile_assignments, AllProfiles, DisplayAssignment};
 
 #[tauri::command]
 fn get_displays(backend: tauri::State<'_, DynDisplayBackend>) -> Vec<display::DisplayDevice> {
@@ -47,8 +55,8 @@ fn save_user_profile(
     let mut all = profiles::load_profiles();
     let user_profile = all
         .users
-        .entry(username.clone())
-        .or_insert_with(UserDisplayProfile::default);
+        .entry(username)
+        .or_default();
 
     // Remove stale entries whose key differs but refer to the same physical monitor
     let stale: Vec<String> = user_profile
@@ -60,7 +68,7 @@ fn save_user_profile(
                     user_profile
                         .assignments
                         .get(*old_key)
-                        .map_or(false, |old_a| {
+                        .is_some_and(|old_a| {
                             same_monitor(&new_a.display_id, &old_a.display_id)
                         })
                 })
@@ -79,7 +87,7 @@ fn save_user_profile(
         if let Some(ref mode) = d.current_mode {
             current_layout.push(DisplayAssignment {
                 display_id: d.display_id.clone(),
-                mode: mode.clone(),
+                mode: *mode,
                 position_x: d.position_x,
                 position_y: d.position_y,
                 is_primary: d.is_primary,
@@ -214,18 +222,6 @@ fn set_scale(
 }
 
 #[tauri::command]
-fn toggle_monitor_state(
-    device_name: String,
-    enabled: bool,
-    backend: tauri::State<'_, DynDisplayBackend>,
-) -> ApplyResult {
-    match backend.toggle_monitor(&device_name, enabled) {
-        Ok(msg) => ApplyResult::ok(msg),
-        Err(e) => ApplyResult::err(e.to_string()),
-    }
-}
-
-#[tauri::command]
 fn save_rollback_point() {
     display::save_rollback_point();
 }
@@ -267,6 +263,8 @@ fn set_startup(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     profiles::set_startup_enabled(enabled, &exe_path)
 }
 
+/// Apply the current user's saved display profile silently.
+/// Called from the launcher via `--apply-profile`.
 pub fn apply_current_user_profile() {
     let username = profiles::current_username();
     let all = profiles::load_profiles();
@@ -275,10 +273,29 @@ pub fn apply_current_user_profile() {
     if let Some(profile) = all.users.get(&username) {
         let remapped = remap_profile_assignments(profile, &current_displays);
         for (_key, assignment) in remapped {
-            if let Some(display) = current_displays
-                .iter()
-                .find(|d| d.display_id.target_id == assignment.display_id.target_id)
-            {
+            let matching_display = current_displays.iter().find(|d| {
+                d.display_id
+                    .matches_path_by_assignment(&assignment.display_id)
+            });
+
+            if let Some(display) = matching_display {
+                let target_orientation = match assignment.orientation.as_str() {
+                    "Portrait" | "portrait" => display::DisplayOrientation::Portrait,
+                    "LandscapeFlipped" | "landscapeflipped" => {
+                        display::DisplayOrientation::LandscapeFlipped
+                    }
+                    "PortraitFlipped" | "portraitflipped" => {
+                        display::DisplayOrientation::PortraitFlipped
+                    }
+                    _ => display::DisplayOrientation::Landscape,
+                };
+                if display.orientation != target_orientation {
+                    let _ = display::set_display_orientation(
+                        &display.device_name,
+                        target_orientation,
+                    );
+                }
+
                 let _ = display::apply_display_settings(
                     &display.device_name,
                     assignment.mode.width,
@@ -286,11 +303,22 @@ pub fn apply_current_user_profile() {
                     assignment.mode.refresh_rate,
                     true,
                 );
+
+                if assignment.position_x != display.position_x
+                    || assignment.position_y != display.position_y
+                {
+                    let _ = display::set_display_position(
+                        &display.device_name,
+                        assignment.position_x,
+                        assignment.position_y,
+                    );
+                }
             }
         }
     }
 }
 
+/// Launch the Tauri application with all command handlers registered.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let backend: DynDisplayBackend = Box::new(backend::Win32Backend);
@@ -314,7 +342,6 @@ pub fn run() {
             set_orientation,
             set_position,
             set_scale,
-            toggle_monitor_state,
             save_rollback_point,
             get_all_profiles,
             save_user_profile,

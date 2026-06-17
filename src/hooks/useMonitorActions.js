@@ -1,14 +1,14 @@
-import { useRef, useState, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { invoke } from "../api";
 
-import { useDisplayStore } from "../stores/useDisplayStore";
 import { useAppStore } from "../stores/useAppStore";
+import { useDisplayStore } from "../stores/useDisplayStore";
 import { useProfileStore } from "../stores/useProfileStore";
 
 import {
   buildSelectionForDisplay,
-  getRefreshRates,
   getDisplayKey,
+  getRefreshRates,
   getUserShortName,
 } from "../js/utils";
 
@@ -96,6 +96,8 @@ export function useMonitorActions() {
     const entries = Object.entries(pendingLayoutChanges);
     if (!entries.length) return;
 
+    let scaleChanged = false;
+
     try {
       await invoke("save_rollback_point");
 
@@ -133,15 +135,20 @@ export function useMonitorActions() {
               deviceName,
               scalePercent: scale,
             });
+            scaleChanged = true;
           }
         }
       }
 
       setConfirmState({
         visible: true,
-        message: `Applied ${entries.length} layout change${entries.length > 1 ? 's' : ''}`,
+        message: `Applied ${entries.length} layout change${entries.length > 1 ? "s" : ""}`,
         timeoutSecs: 10,
       });
+
+      if (scaleChanged) {
+        pushToast("Scale changes will apply after sign out and back in", "info");
+      }
 
       await refreshDisplays();
 
@@ -279,6 +286,7 @@ export function useMonitorActions() {
           deviceName: display.device_name,
           scalePercent: scale,
         });
+        pushToast("Scale changes will apply after sign out and back in", "info");
       }
 
       await refreshDisplays();
@@ -298,10 +306,11 @@ export function useMonitorActions() {
       });
 
       if (settings.autoSave) {
+        const targetProfile = activeProfile || currentUser;
         const assignments = buildFullAssignments();
-        if (Object.keys(assignments).length > 0) {
+        if (Object.keys(assignments).length > 0 && targetProfile) {
           await invoke("save_user_profile", {
-            username: currentUser,
+            username: targetProfile,
             assignments,
           });
           await refreshProfiles();
@@ -317,7 +326,7 @@ export function useMonitorActions() {
   const confirmLayoutChange = useCallback(async () => {
     try {
       await invoke("confirm_layout");
-      pushToast("Layout change confirmed", "success");
+      pushToast("Settings saved", "success");
       dismissConfirmation();
       await refreshDisplays();
     } catch (err) {
@@ -337,41 +346,6 @@ export function useMonitorActions() {
       await refreshDisplays();
     }
   }, [pushToast, dismissConfirmation, refreshDisplays]);
-
-  const toggleMonitor = async (display) => {
-    const enabling = !display.is_active;
-    try {
-      const result = await invoke("toggle_monitor_state", {
-        deviceName: display.device_name,
-        enabled: enabling,
-      });
-
-      if (result?.success) {
-        setConfirmState({
-          visible: true,
-          message: result.message || (enabling ? "Monitor reconnected" : "Monitor disconnected"),
-          timeoutSecs: 10,
-        });
-        await refreshDisplays();
-
-      if (settings.autoSave) {
-        const targetProfile = activeProfile || currentUser;
-        const assignments = buildFullAssignments();
-        if (Object.keys(assignments).length > 0 && targetProfile) {
-          await invoke("save_user_profile", {
-            username: targetProfile,
-            assignments,
-          });
-          await refreshProfiles();
-        }
-      }
-      } else {
-        pushToast(result?.message || "Toggle failed", "error");
-      }
-    } catch (err) {
-      pushToast(`Toggle failed: ${err}`, "error");
-    }
-  };
 
   const makePrimary = async (display) => {
     setBusy(display.device_name);
@@ -443,7 +417,6 @@ export function useMonitorActions() {
     resolutionChange,
     selectionChange,
     applyMonitorSettings,
-    toggleMonitor,
     makePrimary,
     cancelMonitorChanges,
     applyCurrentUserProfile,

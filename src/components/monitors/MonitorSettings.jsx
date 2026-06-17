@@ -1,20 +1,8 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Monitor, StarIcon, X } from "lucide-react";
 import { memo, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  Check,
-  Link,
-  Monitor,
-  MonitorDot,
-  MonitorOff,
-  Power,
-  PowerCircle,
-  Star,
-  StarIcon,
-  Unlink,
-  X,
-} from "lucide-react";
 import {
   formatPosition,
   getDisplayDimensions,
@@ -47,7 +35,6 @@ const MonitorSettingsPanel = memo((props) => {
     onSelectionChange,
     onApply,
     onCancel,
-    onToggleMonitor,
     onMakePrimary,
   } = props;
 
@@ -149,34 +136,14 @@ const MonitorSettingsPanel = memo((props) => {
                     : "Inactive"}
               </span>
             </div>
-            <div className="join">
-              {!display.is_primary && (
-                <button
-                  className="join-item btn btn-ghost hover:bg-primary/80 btn-square"
-                  type="button"
-                  onClick={() => onMakePrimary(display)}
-                >
-                  <StarIcon className="size-4" />
-                </button>
-              )}
-              {display.is_active ? (
-                <button
-                  className="join-item btn btn-ghost hover:bg-error/80 btn-square"
-                  type="button"
-                  onClick={() => onToggleMonitor(display)}
-                >
-                  <MonitorOff className="size-4" />
-                </button>
-              ) : (
-                <button
-                  className="btn btn-success btn-outline w-full"
-                  type="button"
-                  onClick={() => onToggleMonitor(display)}
-                >
-                  <Link className="size-4" />
-                </button>
-              )}
-            </div>
+            {!display.is_primary && (
+              <spann
+                className="hover:text-primary/80"
+                onClick={() => onMakePrimary(display)}
+              >
+                <StarIcon className="size-3" />
+              </spann>
+            )}
           </div>
           <div>
             <h1 className="text-lg font-semibold text-base-content mb-1">

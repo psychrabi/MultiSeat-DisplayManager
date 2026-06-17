@@ -35,6 +35,18 @@ windows = { version = "0.58", features = [
 ] }
 winreg = "0.52"
 
+[lints.rust]
+future-incompatible = "warn"
+nonstandard_style = { level = "deny", priority = -1 }
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "deny", priority = 10 }
+redundant_clone = { level = "deny", priority = 9 }
+large_enum_variant = { level = "warn", priority = 8 }
+needless_collect = { level = "deny", priority = 7 }
+clone_on_copy = { level = "deny", priority = 6 }
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

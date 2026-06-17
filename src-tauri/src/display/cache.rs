@@ -24,12 +24,6 @@ pub struct KnownMonitor {
 }
 
 #[cfg(windows)]
-pub static TOPOLOGY_CACHE: Mutex<Option<CachedTopology>> = Mutex::new(None);
-
-#[cfg(windows)]
-pub static DISCONNECTED_TOPOLOGY: Mutex<Option<CachedTopology>> = Mutex::new(None);
-
-#[cfg(windows)]
 pub static PENDING_CONFIRMATION: Mutex<Option<CachedTopology>> = Mutex::new(None);
 
 #[cfg(windows)]
@@ -73,7 +67,7 @@ where
         if guard.is_empty() {
             *guard = load_known_monitors();
         }
-        let result = f(&mut *guard);
+        let result = f(&mut guard);
         save_known_monitors(&guard);
         result
     } else {

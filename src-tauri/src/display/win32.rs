@@ -149,8 +149,8 @@ pub fn get_all_paths_flags() -> QUERY_DISPLAY_CONFIG_FLAGS {
 }
 
 pub fn normalize_primary_and_positions(
-    paths: &mut Vec<DISPLAYCONFIG_PATH_INFO>,
-    modes: &mut Vec<DISPLAYCONFIG_MODE_INFO>,
+    paths: &mut [DISPLAYCONFIG_PATH_INFO],
+    modes: &mut [DISPLAYCONFIG_MODE_INFO],
 ) {
     let mut primary_found = false;
     for path in paths.iter_mut() {
@@ -226,21 +226,17 @@ pub(crate) fn notify_dwm_of_dpi_change() {
         );
 
         let mut hwnd = desktop_hwnd;
-        loop {
-            if let Ok(next) = GetWindow(hwnd, GET_WINDOW_CMD(2)) {
-                if next.0.is_null() {
-                    break;
-                }
-                hwnd = next;
-                let _ = SetWindowPos(
-                    hwnd,
-                    HWND_TOP,
-                    0, 0, 0, 0,
-                    SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER,
-                );
-            } else {
+        while let Ok(next) = GetWindow(hwnd, GET_WINDOW_CMD(2)) {
+            if next.0.is_null() {
                 break;
             }
+            hwnd = next;
+            let _ = SetWindowPos(
+                hwnd,
+                HWND_TOP,
+                0, 0, 0, 0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER,
+            );
         }
     }
 }

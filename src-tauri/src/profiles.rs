@@ -1,8 +1,10 @@
-use crate::display::{DisplayId, DisplayMode};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
+
+use crate::display::{DisplayId, DisplayMode};
 
 /// Display assignment with hardware-based identification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,7 +74,7 @@ pub fn current_username() -> String {
 pub fn display_id_to_key(display_id: &DisplayId) -> String {
     if let Some(ref edid) = display_id.edid_hash {
         // Use EDID hash as key if available (most stable)
-        format!("edid_{}", edid.replace('\\', "_").replace('#', "_"))
+        format!("edid_{}", edid.replace(['\\', '#'], "_"))
     } else {
         // Fallback to adapter_luid_target_id
         format!("{}_{}", display_id.adapter_luid, display_id.target_id)
@@ -85,10 +87,10 @@ fn extract_pnp_id(edid: &str) -> Option<String> {
     // Try to find pattern like DISPLAY#PnP_ID# or DISPLAY_PnP_ID_
     if let Some(start) = edid.find("DISPLAY").and_then(|i| {
         edid[i..]
-            .find(|c: char| c == '#' || c == '_')
+            .find(['#', '_'])
             .map(|j| i + j + 1)
     }) {
-        if let Some(end) = edid[start..].find(|c: char| c == '#' || c == '_') {
+        if let Some(end) = edid[start..].find(['#', '_']) {
             let pnp_id = &edid[start..start + end];
             if !pnp_id.is_empty() {
                 return Some(pnp_id.to_string());

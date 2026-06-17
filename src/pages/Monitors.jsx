@@ -1,28 +1,18 @@
+import { ConfirmationDialog } from "../components/monitors/ConfirmationDialog";
 import LayoutPreview from "../components/monitors/LayoutPreview";
 import MonitorSettingsPanel from "../components/monitors/MonitorSettings";
-import { ConfirmationDialog } from "../components/monitors/ConfirmationDialog";
 
 import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 
-import { useDisplayStore } from "../stores/useDisplayStore";
+import { FileOutput, MonitorOff, RefreshCcw, Save } from "lucide-react";
 import { useMonitorActions } from "../hooks/useMonitorActions";
 import { useAppStore } from "../stores/useAppStore";
-import {
-  Check,
-  CheckCheck,
-  CheckSquare,
-  Download,
-  FileOutput,
-  MonitorOff,
-  RefreshCcw,
-  Save,
-  Upload,
-  X,
-} from "lucide-react";
+import { useDisplayStore } from "../stores/useDisplayStore";
 
 export default function Monitors() {
   // ===== STORE STATE =====
   const displays = useDisplayStore((s) => s.displays);
+  const activeDisplays = displays.filter((d) => d.is_active);
   const loadingDisplays = useDisplayStore((s) => s.loadingDisplays);
   const highlightedMonitor = useDisplayStore((s) => s.highlightedMonitor);
   const busyMonitor = useDisplayStore((s) => s.busyMonitor);
@@ -40,7 +30,6 @@ export default function Monitors() {
     resolutionChange,
     selectionChange,
     applyMonitorSettings,
-    toggleMonitor,
     makePrimary,
     cancelMonitorChanges,
     confirmState,
@@ -49,8 +38,8 @@ export default function Monitors() {
   } = useMonitorActions();
   // ===== DERIVED =====
   const selectedDisplay =
-    displays.find((d) => d.device_name === highlightedMonitor) ??
-    displays[0] ??
+    activeDisplays.find((d) => d.device_name === highlightedMonitor) ??
+    activeDisplays[0] ??
     null;
 
   const selectedSelection = selectedDisplay
@@ -75,7 +64,10 @@ export default function Monitors() {
 
           <div className="flex gap-3">
             {activeProfile && (
-              <div className="tooltip tooltip-bottom" data-tip="Save to profile">
+              <div
+                className="tooltip tooltip-bottom"
+                data-tip="Save to profile"
+              >
                 <button
                   className="btn btn-square btn-ghost"
                   onClick={() => saveCurrentToProfile(activeProfile)}
@@ -92,7 +84,10 @@ export default function Monitors() {
                 <RefreshCcw className="size-4" />
               </button>
             </div>
-            <div className="tooltip tooltip-left" data-tip="Apply active profile">
+            <div
+              className="tooltip tooltip-left"
+              data-tip="Apply active profile"
+            >
               <button
                 className="btn btn-square btn-primary"
                 onClick={applyCurrentUserProfile}
@@ -104,7 +99,7 @@ export default function Monitors() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] p-4">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(300px,1fr)] p-4">
         <section className="space-y-4">
           <div className="flex items-center justify-between border-b-3 border-base-300 pb-2">
             <div>
@@ -117,7 +112,7 @@ export default function Monitors() {
           </div>
 
           <LayoutPreview
-            displays={displays}
+            displays={activeDisplays}
             monitorSelections={monitorSelections}
             onDraftPosition={draftPosition}
             onSelectMonitor={previewSelectMonitor}
@@ -181,7 +176,6 @@ export default function Monitors() {
               onSelectionChange={selectionChange}
               onApply={applyMonitorSettings}
               onCancel={cancelMonitorChanges}
-              onToggleMonitor={toggleMonitor}
               onMakePrimary={makePrimary}
             />
           </section>

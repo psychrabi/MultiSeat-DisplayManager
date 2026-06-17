@@ -1,4 +1,4 @@
-use crate::display::cache::{self, CachedTopology};
+use crate::display::cache;
 use crate::display::types::*;
 use crate::display::win32;
 
@@ -40,7 +40,7 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
         let path = topology
             .paths
             .iter()
-            .find(|p| win32::get_gdi_name(p).map_or(false, |n| n == device_name_str));
+            .find(|p| win32::get_gdi_name(p).is_some_and(|n| n == device_name_str));
 
         if path.is_none() && (adapter.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) == 0 {
             adapter_index += 1;
@@ -53,9 +53,8 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
             device_string_str.clone()
         };
 
-        let is_active = path.map_or(false, |p| {
-            (p.flags & win32::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0
-        });
+        let is_active =
+            path.is_some_and(|p| (p.flags & win32::DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0);
 
         let (pos_x, pos_y, is_primary) = if let Some(p) = path {
             if is_active {
@@ -179,7 +178,7 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
         });
 
         if current_mode.is_none() && !available_modes.is_empty() {
-            current_mode = Some(available_modes[0].clone());
+            current_mode = Some(available_modes[0]);
         }
 
         let orientation = if let Some(p) = path {
@@ -204,7 +203,7 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
         };
 
         if display_id.edid_hash.is_none()
-            || display_id.edid_hash.as_ref().map_or(true, |h| h.is_empty())
+            || display_id.edid_hash.as_ref().is_none_or(|h| h.is_empty())
         {
             adapter_index += 1;
             continue;
@@ -212,6 +211,7 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
 
         devices.push(DisplayDevice {
             index: adapter_index,
+            monitor_number: None,
             device_name: device_name_str,
             device_string: monitor_name,
             adapter_name: device_string_str,
@@ -230,6 +230,24 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
         adapter_index += 1;
     }
 
+    // Assign monitor numbers based on QueryDisplayConfig path order.
+    // This matches the numbering shown in Windows Display Settings.
+    let mut monitor_number_counter = 1u32;
+    for path in &topology.paths {
+        if (path.flags & win32::DISPLAYCONFIG_PATH_ACTIVE_FLAG) == 0 {
+            continue;
+        }
+        if let Some(gdi_name) = win32::get_gdi_name(path) {
+            if let Some(device) = devices
+                .iter_mut()
+                .find(|d| d.device_name == gdi_name)
+            {
+                device.monitor_number = Some(monitor_number_counter);
+            }
+        }
+        monitor_number_counter += 1;
+    }
+
     cache::with_known_monitors(|known| {
         let mut to_add = Vec::new();
 
@@ -237,6 +255,7 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
             if !devices.iter().any(|d| d.device_name == km.device_name) {
                 to_add.push(DisplayDevice {
                     index: devices.len() as u32 + to_add.len() as u32,
+                    monitor_number: None,
                     device_name: km.device_name.clone(),
                     device_string: km.device_string.clone(),
                     adapter_name: String::new(),
@@ -299,7 +318,7 @@ pub fn set_display_orientation(device_name: &str, orientation: DisplayOrientatio
     let path = match topology
         .paths
         .iter_mut()
-        .find(|p| win32::get_gdi_name(p).map_or(false, |n| n == device_name))
+        .find(|p| win32::get_gdi_name(p).is_some_and(|n| n == device_name))
     {
         Some(p) => p,
         None => return ApplyResult::err("Display not found."),
@@ -333,7 +352,7 @@ pub fn set_display_position(device_name: &str, x: i32, y: i32) -> ApplyResult {
     let path = match topology
         .paths
         .iter_mut()
-        .find(|p| win32::get_gdi_name(p).map_or(false, |n| n == device_name))
+        .find(|p| win32::get_gdi_name(p).is_some_and(|n| n == device_name))
     {
         Some(p) => p,
         None => return ApplyResult::err("Display not found."),
@@ -390,7 +409,7 @@ pub fn set_display_scale(device_name: &str, scale_percent: u32) -> ApplyResult {
     let path = match topology
         .paths
         .iter()
-        .find(|p| win32::get_gdi_name(p).map_or(false, |n| n == device_name))
+        .find(|p| win32::get_gdi_name(p).is_some_and(|n| n == device_name))
     {
         Some(p) => p,
         None => return ApplyResult::err("Display not found in topology."),
@@ -489,7 +508,7 @@ pub fn set_primary_display(target_device_name: &str) -> ApplyResult {
     let target_path_idx = match topology
         .paths
         .iter()
-        .position(|p| win32::get_gdi_name(p).map_or(false, |n| n == target_device_name))
+        .position(|p| win32::get_gdi_name(p).is_some_and(|n| n == target_device_name))
     {
         Some(idx) => idx,
         None => return ApplyResult::err("Target display not found."),
@@ -535,291 +554,12 @@ pub fn set_primary_display(target_device_name: &str) -> ApplyResult {
 }
 
 #[cfg(windows)]
-pub fn toggle_monitor_state(device_name: &str, enabled: bool) -> ApplyResult {
-    use windows::Win32::Devices::Display::{
-        GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig, QDC_ALL_PATHS,
-        SDC_ALLOW_CHANGES, SDC_APPLY, SDC_SAVE_TO_DATABASE, SDC_USE_SUPPLIED_DISPLAY_CONFIG,
-    };
-
-    const DISPLAYCONFIG_PATH_ACTIVE_FLAG: u32 = 0x0000_0001;
-
-    if enabled {
-        fn query_current_topology() -> Result<
-            (
-                Vec<windows::Win32::Devices::Display::DISPLAYCONFIG_PATH_INFO>,
-                Vec<windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO>,
-            ),
-            String,
-        > {
-            let mut path_count = 0u32;
-            let mut mode_count = 0u32;
-            unsafe {
-                if GetDisplayConfigBufferSizes(QDC_ALL_PATHS, &mut path_count, &mut mode_count)
-                    != windows::Win32::Foundation::WIN32_ERROR(0)
-                {
-                    return Err("Failed to query display config buffer sizes.".into());
-                }
-            }
-            let mut paths = vec![Default::default(); path_count as usize];
-            let mut modes = vec![Default::default(); mode_count as usize];
-            unsafe {
-                let status = QueryDisplayConfig(
-                    QDC_ALL_PATHS,
-                    &mut path_count,
-                    paths.as_mut_ptr(),
-                    &mut mode_count,
-                    modes.as_mut_ptr(),
-                    None,
-                );
-                if status != windows::Win32::Foundation::WIN32_ERROR(0) {
-                    return Err("Failed to query display config.".into());
-                }
-            }
-            paths.truncate(path_count as usize);
-            modes.truncate(mode_count as usize);
-            Ok((paths, modes))
-        }
-
-        let (mut paths, mut modes) = {
-            let cache_guard = cache::TOPOLOGY_CACHE.lock();
-            match cache_guard {
-                Ok(ref cache) if cache.is_some() => {
-                    let cached = cache.as_ref().unwrap();
-                    (cached.paths.clone(), cached.modes.clone())
-                }
-                _ => match query_current_topology() {
-                    Ok(result) => result,
-                    Err(e) => return ApplyResult::err(e),
-                },
-            }
-        };
-
-        // Save pre-enable state for confirmation/rollback
-        if let Ok(mut guard) = cache::PENDING_CONFIRMATION.lock() {
-            *guard = Some(CachedTopology {
-                paths: paths.clone(),
-                modes: modes.clone(),
-            });
-        }
-
-        let ref_resolution = paths.iter()
-            .filter(|p| (p.flags & DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0)
-            .filter_map(|p| {
-                let midx = unsafe { p.sourceInfo.Anonymous.modeInfoIdx } as usize;
-                modes.get(midx).and_then(|m| {
-                    if m.infoType == windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE {
-                        Some(unsafe { (m.Anonymous.sourceMode.width, m.Anonymous.sourceMode.height) })
-                    } else {
-                        None
-                    }
-                })
-            })
-            .next()
-            .unwrap_or((1920, 1080));
-
-        let found = paths.iter_mut().any(|path| {
-            let gdi_name = win32::get_gdi_name(path);
-            if gdi_name.as_ref().map_or(false, |n| n == device_name) {
-                path.flags |= DISPLAYCONFIG_PATH_ACTIVE_FLAG;
-                let source_mode_idx = unsafe { path.sourceInfo.Anonymous.modeInfoIdx };
-                if source_mode_idx == 0xFFFFFFFF || (source_mode_idx as usize) >= modes.len() {
-                    let path_adapter_id = path.sourceInfo.adapterId;
-                    let path_id = path.sourceInfo.id;
-                    let mut assigned = false;
-                    for (midx, mode) in modes.iter().enumerate() {
-                        if mode.infoType.0 == 1
-                            && mode.adapterId == path_adapter_id
-                            && mode.id == path_id
-                        {
-                            path.sourceInfo.Anonymous.modeInfoIdx = midx as u32;
-                            assigned = true;
-                            break;
-                        }
-                    }
-                    if !assigned {
-                        if let Ok(saved) = cache::DISCONNECTED_TOPOLOGY.lock() {
-                            if let Some(ref saved_topology) = *saved {
-                                if let Some(saved_path) = saved_topology.paths.iter().find(|sp| {
-                                    sp.sourceInfo.adapterId.LowPart == path_adapter_id.LowPart
-                                        && sp.sourceInfo.adapterId.HighPart == path_adapter_id.HighPart
-                                        && sp.sourceInfo.id == path_id
-                                }) {
-                                    let saved_midx = unsafe { saved_path.sourceInfo.Anonymous.modeInfoIdx } as usize;
-                                    if saved_midx < saved_topology.modes.len() {
-                                        let saved_mode = &saved_topology.modes[saved_midx];
-                                        if saved_mode.infoType == windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE {
-                                            modes.push(*saved_mode);
-                                            path.sourceInfo.Anonymous.modeInfoIdx = (modes.len() - 1) as u32;
-                                            assigned = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if !assigned {
-                        let mut new_mode = windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO::default();
-                        new_mode.infoType = windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE;
-                        new_mode.adapterId = path_adapter_id;
-                        new_mode.id = path_id;
-                        new_mode.Anonymous.sourceMode.width = ref_resolution.0;
-                        new_mode.Anonymous.sourceMode.height = ref_resolution.1;
-                        new_mode.Anonymous.sourceMode.pixelFormat = windows::Win32::Devices::Display::DISPLAYCONFIG_PIXELFORMAT_32BPP;
-                        new_mode.Anonymous.sourceMode.position = windows::Win32::Foundation::POINTL { x: 0, y: 0 };
-                        modes.push(new_mode);
-                        path.sourceInfo.Anonymous.modeInfoIdx = (modes.len() - 1) as u32;
-                    }
-                }
-                true
-            } else {
-                false
-            }
-        });
-
-        if !found {
-            if let Ok(mut cache) = cache::TOPOLOGY_CACHE.lock() {
-                *cache = None;
-            }
-            if let Ok(mut guard) = cache::PENDING_CONFIRMATION.lock() {
-                *guard = None;
-            }
-            return ApplyResult::err("Display not found in display topology.");
-        }
-
-        win32::normalize_primary_and_positions(&mut paths, &mut modes);
-
-        unsafe {
-            let status = SetDisplayConfig(
-                Some(&paths),
-                Some(&modes),
-                SDC_APPLY
-                    | SDC_USE_SUPPLIED_DISPLAY_CONFIG
-                    | SDC_SAVE_TO_DATABASE
-                    | SDC_ALLOW_CHANGES,
-            );
-            if status == 0 {
-                if let Ok(mut cache) = cache::TOPOLOGY_CACHE.lock() {
-                    *cache = None;
-                }
-                ApplyResult::ok(format!("Monitor {} connected.", device_name))
-            } else {
-                ApplyResult::err(format!("Failed to connect monitor: {}", status))
-            }
-        }
-    } else {
-        let mut path_count = 0u32;
-        let mut mode_count = 0u32;
-
-        unsafe {
-            let status =
-                GetDisplayConfigBufferSizes(QDC_ALL_PATHS, &mut path_count, &mut mode_count);
-            if status.0 != 0 {
-                return ApplyResult::err(format!("Failed to get display config: {}", status.0));
-            }
-        }
-
-        let mut paths = vec![
-            windows::Win32::Devices::Display::DISPLAYCONFIG_PATH_INFO::default();
-            path_count as usize
-        ];
-        let mut modes = vec![
-            windows::Win32::Devices::Display::DISPLAYCONFIG_MODE_INFO::default();
-            mode_count as usize
-        ];
-
-        unsafe {
-            let status = QueryDisplayConfig(
-                QDC_ALL_PATHS,
-                &mut path_count,
-                paths.as_mut_ptr(),
-                &mut mode_count,
-                modes.as_mut_ptr(),
-                None,
-            );
-            if status.0 != 0 {
-                return ApplyResult::err(format!("Failed to query display config: {}", status.0));
-            }
-        }
-
-        paths.truncate(path_count as usize);
-        modes.truncate(mode_count as usize);
-
-        // Save pre-disconnect topology for later reconnection
-        if let Ok(mut saved) = cache::DISCONNECTED_TOPOLOGY.lock() {
-            *saved = Some(CachedTopology {
-                paths: paths.clone(),
-                modes: modes.clone(),
-            });
-        }
-
-        // Save pre-disable state for confirmation/rollback
-        if let Ok(mut guard) = cache::PENDING_CONFIRMATION.lock() {
-            *guard = Some(CachedTopology {
-                paths: paths.clone(),
-                modes: modes.clone(),
-            });
-        }
-
-        if let Ok(mut cache) = cache::TOPOLOGY_CACHE.lock() {
-            *cache = Some(CachedTopology {
-                paths: paths.clone(),
-                modes: modes.clone(),
-            });
-        }
-
-        let total_active_count = paths
-            .iter()
-            .filter(|p| (p.flags & DISPLAYCONFIG_PATH_ACTIVE_FLAG) != 0)
-            .count();
-
-        let found = paths.iter_mut().any(|path| {
-            let gdi_name = win32::get_gdi_name(path);
-            if gdi_name.as_ref().map_or(false, |n| n == device_name) {
-                if total_active_count <= 1 {
-                    return true;
-                }
-                path.flags &= !DISPLAYCONFIG_PATH_ACTIVE_FLAG;
-                true
-            } else {
-                false
-            }
-        });
-
-        if !found {
-            return ApplyResult::err("Display not found.");
-        }
-
-        if total_active_count <= 1 {
-            return ApplyResult::err("Cannot disable the last active display.");
-        }
-
-        win32::normalize_primary_and_positions(&mut paths, &mut modes);
-
-        unsafe {
-            let status = SetDisplayConfig(
-                Some(&paths),
-                Some(&modes),
-                SDC_APPLY
-                    | SDC_USE_SUPPLIED_DISPLAY_CONFIG
-                    | SDC_SAVE_TO_DATABASE
-                    | SDC_ALLOW_CHANGES,
-            );
-            if status == 0 {
-                ApplyResult::ok(format!("Monitor {} disconnected.", device_name))
-            } else {
-                ApplyResult::err(format!("Failed to disconnect monitor: {}", status))
-            }
-        }
-    }
-}
-
-#[cfg(windows)]
 pub fn apply_display_settings(
     device_name: &str,
     width: u32,
     height: u32,
     refresh_rate: u32,
-    _persist: bool,
+    persist: bool,
 ) -> ApplyResult {
     use windows::Win32::Graphics::Gdi::{
         ChangeDisplaySettingsExW, EnumDisplaySettingsW, CDS_TEST, CDS_UPDATEREGISTRY, DEVMODEW,
@@ -931,12 +671,18 @@ pub fn apply_display_settings(
         });
     }
 
+    let flags = if persist {
+        CDS_UPDATEREGISTRY
+    } else {
+        windows::Win32::Graphics::Gdi::CDS_TYPE(0)
+    };
+
     let apply_result = unsafe {
         ChangeDisplaySettingsExW(
             windows::core::PCWSTR(gdi_name_wide.as_ptr()),
             Some(&devmode),
             None,
-            CDS_UPDATEREGISTRY,
+            flags,
             None,
         )
     };
@@ -960,7 +706,10 @@ pub fn enumerate_displays() -> Vec<DisplayDevice> {
     vec![]
 }
 #[cfg(not(windows))]
-pub fn set_display_orientation(_device_name: &str, _orientation: DisplayOrientation) -> ApplyResult {
+pub fn set_display_orientation(
+    _device_name: &str,
+    _orientation: DisplayOrientation,
+) -> ApplyResult {
     ApplyResult::err("Not supported.")
 }
 #[cfg(not(windows))]
@@ -973,10 +722,6 @@ pub fn set_display_scale(_device_name: &str, _scale_percent: u32) -> ApplyResult
 }
 #[cfg(not(windows))]
 pub fn set_primary_display(_target_device_name: &str) -> ApplyResult {
-    ApplyResult::err("Not supported.")
-}
-#[cfg(not(windows))]
-pub fn toggle_monitor_state(_device_name: &str, _enabled: bool) -> ApplyResult {
     ApplyResult::err("Not supported.")
 }
 #[cfg(not(windows))]

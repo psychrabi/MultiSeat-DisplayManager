@@ -18,6 +18,23 @@ function saveActiveProfile(user) {
   } catch {}
 }
 
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem("display-manager-settings");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { persist: true, autoSave: true, ...parsed };
+    }
+  } catch {}
+  return { persist: true, autoSave: true };
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem("display-manager-settings", JSON.stringify(settings));
+  } catch {}
+}
+
 export const useAppStore = create((set) => ({
   currentUser: "",
   setCurrentUser: (user) =>
@@ -37,9 +54,13 @@ export const useAppStore = create((set) => ({
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
-  settings: { persist: true, autoSave: true },
+  settings: loadSettings(),
   updateSettings: (patch) =>
-    set((state) => ({ settings: { ...state.settings, ...patch } })),
+    set((state) => {
+      const newSettings = { ...state.settings, ...patch };
+      saveSettings(newSettings);
+      return { settings: newSettings };
+    }),
 
   toasts: [],
   pushToast: (message, type = "info") =>

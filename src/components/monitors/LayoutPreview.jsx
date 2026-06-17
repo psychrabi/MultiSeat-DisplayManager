@@ -1,7 +1,7 @@
 import { Check, Star, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
-import { getDisplayDimensions, snapLayoutPosition } from "../../js/utils";
 import { useMonitorActions } from "../../hooks/useMonitorActions";
+import { getDisplayDimensions, snapLayoutPosition } from "../../js/utils";
 
 const SNAP_THRESHOLD = 50;
 
@@ -61,6 +61,8 @@ const LayoutPreview = memo(
     const [snapGuides, setSnapGuides] = useState({ v: [], h: [] });
     const { cancelLayoutChanges, applyLayoutChanges, hasPendingLayoutChanges } =
       useMonitorActions();
+
+    const activeDisplays = displays.filter((d) => d.is_active);
 
     useEffect(() => {
       const node = innerRef.current;
@@ -182,7 +184,7 @@ const LayoutPreview = memo(
 
     const DEFAULT_MODE = { refresh_rate: 60, width: 1920, height: 1080 };
 
-    const allDisplays = displays.map((display, index) => {
+    const allDisplays = activeDisplays.map((display, index) => {
       let mode = display.current_mode ?? DEFAULT_MODE;
       if (!mode.width || !mode.height) {
         mode = { ...mode, width: 1920, height: 1080 };
@@ -220,12 +222,10 @@ const LayoutPreview = memo(
           : { x: display.position_x, y: display.position_y };
       const dimensions = getDisplayDimensions(display, display.current_mode);
 
-      if (display.is_active) {
-        minX = Math.min(minX, previewPosition.x);
-        minY = Math.min(minY, previewPosition.y);
-        maxX = Math.max(maxX, previewPosition.x + dimensions.width);
-        maxY = Math.max(maxY, previewPosition.y + dimensions.height);
-      }
+      minX = Math.min(minX, previewPosition.x);
+      minY = Math.min(minY, previewPosition.y);
+      maxX = Math.max(maxX, previewPosition.x + dimensions.width);
+      maxY = Math.max(maxY, previewPosition.y + dimensions.height);
     });
 
     if (minX === Infinity) {
@@ -234,10 +234,6 @@ const LayoutPreview = memo(
       maxX = 0;
       maxY = 0;
     }
-
-    let inactiveOffsetX = minX;
-    const INACTIVE_SPACING = 200;
-    const inactiveY = maxY + INACTIVE_SPACING;
 
     let layoutMaxX = maxX;
     let layoutMaxY = maxY;
@@ -250,15 +246,6 @@ const LayoutPreview = memo(
       if (isDragging) {
         x = dragPreview.x;
         y = dragPreview.y;
-      } else if (!display.is_active) {
-        x = inactiveOffsetX;
-        y = inactiveY;
-
-        const dims = getDisplayDimensions(display, display.current_mode);
-        inactiveOffsetX += dims.width + INACTIVE_SPACING;
-
-        layoutMaxX = Math.max(layoutMaxX, x + dims.width);
-        layoutMaxY = Math.max(layoutMaxY, y + dims.height);
       }
 
       return { ...display, renderX: x, renderY: y };
@@ -339,15 +326,13 @@ const LayoutPreview = memo(
                       ? "border-primary/40 z-10"
                       : "border-base-content/20  z-10 hover:border-accent/50 hover:z-20"
                 } ${display.is_primary ? "bg-primary/10" : "bg-base-200"} ${
-                  !display.is_active
-                    ? "opacity-40 border-dashed border-base-content/20 bg-base-200 cursor-default hover:border-base-content/20"
-                    : isDragging
-                      ? "cursor-grabbing z-100 border-accent shadow-xl shadow-accent/30"
-                      : "cursor-grab hover:cursor-grab"
+                  isDragging
+                    ? "cursor-grabbing z-100 border-accent shadow-xl shadow-accent/30"
+                    : "cursor-grab hover:cursor-grab"
                 }`}
                 data-device={display.device_name}
                 onMouseDown={(event) => {
-                  if (!display.is_active || scale <= 0) return;
+                  if (scale <= 0) return;
 
                   dragRef.current = {
                     deviceName: display.device_name,
@@ -377,8 +362,7 @@ const LayoutPreview = memo(
                 <div
                   className={`text-2xl font-bold font-mono mb-1 ${isHighlighted ? "text-accent" : "text-base-content"}`}
                 >
-                  {display.device_name.match(/DISPLAY(\d+)/i)?.[1] ||
-                    display.previewIndex + 1}
+                  {display.monitor_number ?? display.previewIndex + 1}
                 </div>
                 <div className="text-[10px] font-mono opacity-70">
                   {dimensions.width}x{dimensions.height}
@@ -386,11 +370,6 @@ const LayoutPreview = memo(
                 <div className="text-[9px] opacity-60 mt-1 text-center max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-1">
                   {shortMonitorName}
                 </div>
-                {!display.is_active && (
-                  <div className="text-[8px] font-bold tracking-widest opacity-50 mt-1 uppercase text-error">
-                    {display.not_detected ? "NOT DETECTED" : "Disconnected"}
-                  </div>
-                )}
                 {display.is_primary && (
                   <div
                     className="absolute top-1 left-1.5 text-warning drop-shadow-sm"

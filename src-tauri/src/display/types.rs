@@ -1,5 +1,8 @@
-use serde::{Deserialize, Serialize};
+use std::ffi::OsString;
 use std::fmt;
+use std::os::windows::ffi::OsStringExt;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub enum ManagerError {
@@ -115,7 +118,7 @@ fn get_edid_hash(
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DisplayMode {
     pub width: u32,
     pub height: u32,
@@ -123,24 +126,20 @@ pub struct DisplayMode {
     pub bits_per_pixel: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum DisplayOrientation {
+    #[default]
     Landscape,
     Portrait,
     LandscapeFlipped,
     PortraitFlipped,
 }
 
-impl Default for DisplayOrientation {
-    fn default() -> Self {
-        DisplayOrientation::Landscape
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayDevice {
     pub index: u32,
+    pub monitor_number: Option<u32>,
     pub device_name: String,
     pub device_string: String,
     pub adapter_name: String,
@@ -155,9 +154,6 @@ pub struct DisplayDevice {
     pub orientation: DisplayOrientation,
     pub scale_factor: u32,
 }
-
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
 
 pub fn wide_to_string(wide: &[u16]) -> String {
     let end = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
