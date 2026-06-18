@@ -1,5 +1,5 @@
-import { memo } from "react";
 import { Download, X } from "lucide-react";
+import { memo } from "react";
 import { useUpdater } from "../hooks/useUpdater";
 
 const UpdateBanner = memo(() => {
@@ -77,9 +77,7 @@ const UpdateBanner = memo(() => {
       </div>
 
       {error && (
-        <div className="text-xs text-error mt-1">
-          Update failed: {error}
-        </div>
+        <div className="text-xs text-error mt-1">Update failed: {error}</div>
       )}
     </div>
   );

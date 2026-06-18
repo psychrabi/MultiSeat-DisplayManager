@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-
 use serde::{Deserialize, Serialize};
-
 use crate::display::{DisplayId, DisplayMode};
 
 /// Display assignment with hardware-based identification

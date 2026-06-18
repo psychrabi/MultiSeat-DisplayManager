@@ -1,3 +1,5 @@
+import { Monitor, Plus, Target, Trash2, UserCheck, Users } from "lucide-react";
+import { invoke } from "../api";
 import { EmptyProfileState } from "../components/profiles/ui.jsx";
 import {
   AVATAR_COLORS,
@@ -6,12 +8,9 @@ import {
   getUserShortName,
   PAGE_TITLES,
 } from "../js/utils.jsx";
-
-import { useProfileStore } from "../stores/useProfileStore";
-import { useDisplayStore } from "../stores/useDisplayStore";
 import { useAppStore } from "../stores/useAppStore";
-import { Plus, Trash2, Monitor, UserCheck, Users, Target } from "lucide-react";
-import { invoke } from "../api";
+import { useDisplayStore } from "../stores/useDisplayStore";
+import { useProfileStore } from "../stores/useProfileStore";
 
 const ProfilesPage = () => {
   const profiles = useProfileStore((s) => s.profiles);

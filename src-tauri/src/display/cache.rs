@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-
 use serde::{Deserialize, Serialize};
 
 #[cfg(windows)]

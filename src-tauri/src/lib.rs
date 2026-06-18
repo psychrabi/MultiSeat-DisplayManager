@@ -9,9 +9,7 @@ mod display;
 mod profiles;
 
 use std::collections::HashMap;
-
 use tauri::Manager;
-
 use backend::DynDisplayBackend;
 use display::ApplyResult;
 use display::DisplayId;

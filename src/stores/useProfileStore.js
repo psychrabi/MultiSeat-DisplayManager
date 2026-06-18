@@ -4,7 +4,6 @@ import { invoke } from "../api";
 export const useProfileStore = create((set) => ({
   profiles: { users: {} },
   selectedProfileUser: null,
-
   newProfileOpen: false,
   newProfileUsername: "",
 

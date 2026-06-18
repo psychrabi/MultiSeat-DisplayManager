@@ -1,7 +1,7 @@
-import { Monitor, MonitorCog, Settings, Users } from "lucide-react";
-import { NavLink } from "react-router";
-import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { Monitor, MonitorCog, Settings, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { NavLink } from "react-router";
 
 export function Sidebar({ onNavigate }) {
   const [version, setVersion] = useState("");

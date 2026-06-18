@@ -8,6 +8,5 @@ fn main() {
         display_manager_lib::apply_current_user_profile();
         return;
     }
-
     display_manager_lib::run();
 }

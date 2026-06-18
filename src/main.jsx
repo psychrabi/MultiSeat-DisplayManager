@@ -1,11 +1,10 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Route, Routes } from "react-router";
 import App from "./App";
-import MonitorsPage from "./pages/Monitors";
-import SettingsPage from "./pages/Settings";
-import ProfilesPage from "./pages/Profiles";
 import "./App.css";
+import MonitorsPage from "./pages/Monitors";
+import ProfilesPage from "./pages/Profiles";
+import SettingsPage from "./pages/Settings";
 
 ReactDOM.createRoot(root).render(
   <HashRouter>

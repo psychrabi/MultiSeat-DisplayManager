@@ -1,9 +1,8 @@
+import { Database, Power, Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Database, Power, Save, Settings2 } from "lucide-react";
 import { invoke } from "../api";
-import { PAGE_TITLES } from "../js/utils";
 import { useTheme } from "../contexts/ThemeContext";
-
+import { PAGE_TITLES } from "../js/utils";
 import { useAppStore } from "../stores/useAppStore";
 
 const SettingsPage = () => {

@@ -147,7 +147,10 @@ export function useMonitorActions() {
       });
 
       if (scaleChanged) {
-        pushToast("Scale changes will apply after sign out and back in", "info");
+        pushToast(
+          "Scale changes will apply after sign out and back in",
+          "info",
+        );
       }
 
       await refreshDisplays();
@@ -286,7 +289,10 @@ export function useMonitorActions() {
           deviceName: display.device_name,
           scalePercent: scale,
         });
-        pushToast("Scale changes will apply after sign out and back in", "info");
+        pushToast(
+          "Scale changes will apply after sign out and back in",
+          "info",
+        );
       }
 
       await refreshDisplays();

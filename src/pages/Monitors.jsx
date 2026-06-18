@@ -1,11 +1,9 @@
+import { FileOutput, MonitorOff, RefreshCcw, Save } from "lucide-react";
 import { ConfirmationDialog } from "../components/monitors/ConfirmationDialog";
 import LayoutPreview from "../components/monitors/LayoutPreview";
 import MonitorSettingsPanel from "../components/monitors/MonitorSettings";
-
-import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
-
-import { FileOutput, MonitorOff, RefreshCcw, Save } from "lucide-react";
 import { useMonitorActions } from "../hooks/useMonitorActions";
+import { buildSelectionForDisplay, PAGE_TITLES } from "../js/utils";
 import { useAppStore } from "../stores/useAppStore";
 import { useDisplayStore } from "../stores/useDisplayStore";
 

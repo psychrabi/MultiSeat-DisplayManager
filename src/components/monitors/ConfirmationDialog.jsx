@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, RotateCcw } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function ConfirmationDialog({
   visible,
