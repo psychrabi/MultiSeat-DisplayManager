@@ -1,6 +1,6 @@
 {
   "name": "display-manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Display Manager is an application which allows to manage display settings in multi user enviroment. Each user can configure their own display settings independently.",
   "scripts": {
     "frontend:dev": "vite",
@@ -18,10 +18,10 @@
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@tailwindcss/vite": "^4.3.1",
-    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
-    "lucide-react": "^1.20.0",
+    "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.79.0",
