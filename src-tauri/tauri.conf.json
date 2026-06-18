@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Display Manager",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "identifier": "com.multiseat.display-manager",
   "build": {
     "beforeDevCommand": "bun run frontend:dev",
@@ -28,7 +28,7 @@
       "endpoints": [
         "https://github.com/psychrabi/MultiSeat-DisplayManager/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBRURFNjA1MTFEOURGQUMKUldTczM5a1JCZWJ0NnJwSjdGS3hQYXBMK00wdWFvM25WSy90UCtGcnc0MkZRSGpSaXdSbm5HQWIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMxNDA5NzU2QThBNzhGNTYKUldSV2o2ZW9WcGRBd2RvNFd2NDBoTHAybTFHdGVoYk1FbjBUL0pFMDZWSklFUWJBZndRT2EwcjcK"
     }
   },
   "bundle": {
